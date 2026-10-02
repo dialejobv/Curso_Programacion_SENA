@@ -1,0 +1,505 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Centro de Datos Interactivo</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: escena isométrica fija a la izquierda, ficha de la parada a la derecha, riel de pasos debajo del encabezado. */
+:root{
+  --bg:#eef2f6; --surface:#ffffff; --surface2:#f5f8fb; --ink:#14233b; --muted:#566a85; --line:#d3dce7;
+  --accent:#0b6e99; --accent-ink:#ffffff; --accent-soft:#dcecf4; --warn:#a85a00; --warn-soft:#fbefd9;
+  --scene:#dfe8f0; --floor:#f7fafc; --floor-line:#c5d1de; --wall:#c9d5e2; --apron:#b9c6d4;
+  --l7:#b83a4b; --l6:#c0622a; --l5:#a57a12; --l4:#3d8a4e; --l3:#1f8a8a; --l2:#2f6fc0; --l1:#6a55b8;
+  --display:'Barlow Condensed','Arial Narrow',sans-serif; --body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif; --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0c141f; --surface:#141f2e; --surface2:#1a2738; --ink:#e6edf6; --muted:#9bb0c8; --line:#2a3a50;
+  --accent:#4db8e0; --accent-ink:#06202c; --accent-soft:#16384a; --warn:#f0b455; --warn-soft:#3a2c12;
+  --scene:#101b29; --floor:#22324a; --floor-line:#33486a; --wall:#2c3f5c; --apron:#1a2638; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0c141f; --surface:#141f2e; --surface2:#1a2738; --ink:#e6edf6; --muted:#9bb0c8; --line:#2a3a50;
+  --accent:#4db8e0; --accent-ink:#06202c; --accent-soft:#16384a; --warn:#f0b455; --warn-soft:#3a2c12;
+  --scene:#101b29; --floor:#22324a; --floor-line:#33486a; --wall:#2c3f5c; --apron:#1a2638; color-scheme:dark }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--body)}
+.wrap{max-width:1320px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;display:flex;flex-direction:column;gap:14px}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px}
+.top h1{font:700 34px/1 var(--display);letter-spacing:.5px;text-transform:uppercase;margin:0}
+.top p{margin:4px 0 0;color:var(--muted);max-width:60ch}
+.chapters{display:flex;flex-wrap:wrap;gap:6px}
+.chapters button{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:7px 14px;font:600 16px var(--display);letter-spacing:.6px;text-transform:uppercase}
+.chapters button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+.rail{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
+.rail button{flex:none;display:flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:5px 10px 5px 6px;font-size:13px;white-space:nowrap}
+.rail button b{display:grid;place-items:center;min-width:22px;height:22px;border-radius:4px;background:var(--surface2);font:600 12px var(--mono);color:var(--muted)}
+.rail button[aria-current="step"]{border-color:var(--accent);background:var(--accent-soft)}
+.rail button[aria-current="step"] b{background:var(--accent);color:var(--accent-ink)}
+
+.main{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:980px){.main{grid-template-columns:minmax(0,1fr)}}
+.scene{background:var(--scene);border:1px solid var(--line);border-radius:10px;overflow:hidden;position:sticky;top:calc(env(safe-area-inset-top,0px) + 8px)}
+@media (max-width:980px){.scene{position:static}}
+.scene svg{display:block;width:100%;height:auto}
+.scene-foot{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--line);background:var(--surface);font-size:12.5px;color:var(--muted)}
+.nav{display:flex;gap:6px;align-items:center}
+.nav button{border:1px solid var(--line);background:var(--surface2);border-radius:6px;padding:6px 12px;font-weight:600;font-size:13px;color:var(--ink)}
+.nav button.go{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.nav button:disabled{opacity:.4;cursor:default}
+.nav span{font:500 12px var(--mono);min-width:54px;text-align:center}
+
+/* escena */
+.floor{fill:var(--floor);stroke:var(--floor-line);stroke-width:1}
+.wall{fill:var(--wall);stroke:var(--floor-line);stroke-width:.8}
+.apron{fill:var(--apron)}
+.tile{stroke:var(--floor-line);stroke-width:.5;fill:none;opacity:.7}
+.zf{fill:transparent;stroke:var(--floor-line);stroke-width:1.2;stroke-dasharray:5 4;cursor:pointer;transition:fill .25s}
+.zf:hover{fill:color-mix(in srgb,var(--accent) 14%,transparent)}
+.zf.on{fill:color-mix(in srgb,var(--accent) 26%,transparent);stroke:var(--accent);stroke-width:2;stroke-dasharray:none}
+.obj{transition:opacity .3s;cursor:pointer}
+svg.focus .obj:not(.on){opacity:.2}
+.led{stroke-width:2;stroke-linecap:round}
+@keyframes blink{50%{opacity:.25}}
+.blink{animation:blink 1.6s steps(2) infinite}
+.fan{transform-box:fill-box;transform-origin:center}
+.fiber{fill:none;stroke:#f2a516;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.flow{fill:none;stroke:var(--accent);stroke-width:3;stroke-dasharray:3 7;stroke-linecap:round;stroke-linejoin:round;animation:dash 1s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-20}}
+.pin{cursor:pointer;transition:opacity .3s}
+.pin circle{fill:var(--surface);stroke:var(--ink);stroke-width:1.5}
+.pin .n{font:600 11px var(--mono);fill:var(--ink);text-anchor:middle}
+.pin .t{font:600 13px var(--display);letter-spacing:.5px;text-transform:uppercase;fill:var(--ink);paint-order:stroke;stroke:var(--scene);stroke-width:4px;stroke-linejoin:round}
+svg.focus .pin:not(.on){opacity:.45}
+.pin.on circle{fill:var(--accent);stroke:var(--accent)}
+.pin.on .n{fill:var(--accent-ink)}
+.cloudtxt{font:600 12px var(--display);letter-spacing:.5px;text-transform:uppercase;fill:var(--ink);text-anchor:middle;paint-order:stroke;stroke:var(--scene);stroke-width:4px}
+@media (prefers-reduced-motion:reduce){.blink,.flow{animation:none}}
+
+/* ficha */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px 20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.eyebrow{font:600 13px var(--display);letter-spacing:1.4px;text-transform:uppercase;color:var(--accent)}
+.card h2{font:700 30px/1.05 var(--display);letter-spacing:.3px;margin:2px 0 0;text-wrap:balance}
+.lead{margin:0;max-width:65ch}
+.items{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.items li{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr);gap:4px 12px;padding-top:8px;border-top:1px solid var(--line)}
+.items b{font-weight:600}
+.items span{color:var(--muted)}
+@media (max-width:520px){.items li{grid-template-columns:minmax(0,1fr)}}
+.facts{display:flex;flex-wrap:wrap;gap:8px}
+.fact{background:var(--surface2);border:1px solid var(--line);border-radius:6px;padding:6px 10px;min-width:0}
+.fact small{display:block;font:500 11px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.fact strong{font:600 14px var(--mono);font-variant-numeric:tabular-nums}
+.ask{background:var(--warn-soft);border-left:3px solid var(--warn);padding:10px 12px;border-radius:0 6px 6px 0;margin:0}
+.ask b{display:block;font:600 12px var(--display);letter-spacing:1.2px;text-transform:uppercase;color:var(--warn)}
+.viz{border:1px solid var(--line);border-radius:8px;background:var(--surface2);padding:12px;min-width:0}
+.viz h3{font:600 12px var(--display);letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.scroll{overflow-x:auto}
+table.t{border-collapse:collapse;font:13px var(--mono);width:100%}
+table.t th,table.t td{border:1px solid var(--line);padding:4px 8px;text-align:left;white-space:nowrap}
+table.t th{background:var(--accent-soft);font-weight:600}
+table.t caption{caption-side:top;text-align:left;font:600 12px var(--mono);color:var(--muted);padding-bottom:3px}
+table.t.wrapc td{white-space:normal;font-family:var(--body)}
+pre.code{margin:8px 0 0;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:9px 11px;font:12.5px/1.5 var(--mono);overflow-x:auto;white-space:pre}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+
+/* OSI */
+.osi{display:grid;gap:3px}
+.osi button{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left;border:0;border-radius:5px;padding:6px 10px;background:var(--c);color:#fff;opacity:.38;font-size:13.5px}
+.osi button.on{opacity:1;box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--c)}
+.osi button b{font:700 20px var(--display)}
+.osi button i{font:500 11.5px var(--mono);font-style:normal;opacity:.9}
+.pdu{display:flex;gap:2px;margin-top:10px;flex-wrap:wrap}
+.pdu span{padding:5px 9px;border-radius:4px;background:var(--c);color:#fff;font:500 12px var(--mono)}
+.pdu span.bits{background:var(--l1);letter-spacing:1px;overflow-wrap:anywhere}
+.jr{display:grid;grid-template-columns:minmax(0,1fr) 44px minmax(0,1fr);gap:6px;align-items:end}
+.jr h4{font:600 13px var(--display);letter-spacing:1px;text-transform:uppercase;margin:0 0 4px;text-align:center}
+.stack{display:grid;gap:2px}
+.stack div{background:var(--c);color:#fff;border-radius:4px;padding:3px 8px;font:500 12px var(--mono);opacity:.3;transition:opacity .2s}
+.stack div.on{opacity:1}
+.medium{align-self:end;height:26px;border-bottom:4px solid var(--l1);opacity:.3}
+.medium.on{opacity:1}
+.jstat{margin:10px 0 0;min-height:3.2em;font-size:13.5px}
+.btn{border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);border-radius:6px;padding:7px 14px;font-weight:600;margin-top:8px}
+.dbbox{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:4px;border:1px dashed var(--line);font:500 12px var(--mono);opacity:.4}
+.dbbox.on{opacity:1;border-color:var(--accent);background:var(--accent-soft)}
+.kv{display:grid;grid-template-columns:auto 20px minmax(0,1fr);gap:4px 6px;font:12.5px var(--mono)}
+.kv span:nth-child(3n+1){background:var(--accent-soft);padding:3px 8px;border-radius:4px}
+.kv span:nth-child(3n){padding:3px 0;overflow-wrap:anywhere}
+.kv span:nth-child(3n+2){padding:3px 0;color:var(--muted)}
+.gsvg text{font:500 11px var(--mono);fill:var(--ink)}
+.gsvg .nd{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5}
+.gsvg .ed{stroke:var(--muted);stroke-width:1.3;fill:none}
+.gsvg .el{fill:var(--muted);font-size:9.5px}
+.gsvg .ax{stroke:var(--line);stroke-width:1}
+.gsvg .ln{fill:none;stroke:var(--accent);stroke-width:2}
+.gsvg .ar{fill:color-mix(in srgb,var(--accent) 18%,transparent)}
+.gsvg .pt{fill:var(--accent)}
+.gsvg .q{fill:var(--warn)}
+.tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px}
+.tiers div{border:1px solid var(--line);border-radius:6px;padding:8px;background:var(--surface)}
+.tiers b{font:700 18px var(--display);display:block}
+.tiers small{display:block;color:var(--muted);font-size:12px}
+.tiers strong{font:600 13px var(--mono)}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Centro de Datos Interactivo</h1>
+      <p>Recorrido guiado para clase: la infraestructura, el modelo OSI y las bases de datos, parada por parada.</p>
+    </div>
+    <div class="chapters" id="chapters" role="group" aria-label="Capítulos"></div>
+  </header>
+  <nav class="rail" id="rail" aria-label="Paradas del capítulo"></nav>
+  <div class="main">
+    <section class="scene" aria-label="Plano isométrico del centro de datos">
+      <svg id="svg" viewBox="0 0 840 590" role="img" aria-label="Centro de datos en vista isométrica"></svg>
+      <div class="scene-foot">
+        <span>Toca una zona del plano para ir a su parada. Teclas ← → para avanzar.</span>
+        <div class="nav"><button id="prev" type="button">← Anterior</button><span id="count"></span><button id="next" type="button" class="go">Siguiente →</button></div>
+      </div>
+    </section>
+    <article class="card" id="card" aria-live="polite"></article>
+  </div>
+</div>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+/* ================= ESCENA ISOMÉTRICA ================= */
+const S=24,OX=385,OY=72,C=.866;
+const P=(x,y,z=0)=>[OX+(x-y)*C*S,OY+(x+y)*.5*S-z*S];
+const pts=a=>a.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+const shade=(hex,f)=>{const n=parseInt(hex.slice(1),16);const c=[n>>16,n>>8&255,n&255].map(v=>Math.max(0,Math.min(255,Math.round(v*f))));return `rgb(${c})`};
+const poly=(a,fill,extra='')=>`<polygon points="${pts(a)}" fill="${fill}" ${extra}/>`;
+function box(x,y,z,w,d,h,col){
+  return poly([P(x,y+d,z+h),P(x+w,y+d,z+h),P(x+w,y+d,z),P(x,y+d,z)],shade(col,.8))
+       + poly([P(x+w,y,z+h),P(x+w,y+d,z+h),P(x+w,y+d,z),P(x+w,y,z)],shade(col,.58))
+       + poly([P(x,y,z+h),P(x+w,y,z+h),P(x+w,y+d,z+h),P(x,y+d,z+h)],shade(col,1.12));
+}
+const faceY=(x,y,z,w,h,fill,extra='')=>poly([P(x,y,z+h),P(x+w,y,z+h),P(x+w,y,z),P(x,y,z)],fill,extra);
+const line3=(a,b,cls,extra='')=>{const p=P(...a),q=P(...b);return `<line x1="${p[0].toFixed(1)}" y1="${p[1].toFixed(1)}" x2="${q[0].toFixed(1)}" y2="${q[1].toFixed(1)}" class="${cls}" ${extra}/>`};
+const rect=(x,y,w,d,z=0)=>[P(x,y,z),P(x+w,y,z),P(x+w,y+d,z),P(x,y+d,z)];
+let seed=7;const rand=()=>(seed=(seed*16807)%2147483647)/2147483647;
+
+const objs=[];
+const add=(zone,x,y,w,d,svg)=>objs.push({zone,k:x+w/2+y+d/2,svg});
+function rack(zone,x,y,h,col,led,rows=6){
+  let s=box(x,y,0,1,1.25,h,col);
+  for(let i=0;i<rows;i++){const z=.35+i*((h-.6)/rows);const a=.14+rand()*.2,b=.55+rand()*.31;
+    s+=line3([x+a,y+1.25,z],[x+b,y+1.25,z],'led'+(rand()>.6?' blink':''),`stroke="${led}" style="animation-delay:${(rand()*1.5).toFixed(2)}s"`);}
+  add(zone,x,y,1,1.25,s);
+}
+// Climatización
+[[.8,.8],[3,.8],[5.2,.8],[.8,3],[3,3],[5.2,3]].forEach(([x,y])=>{
+  const c=P(x+.8,y+.7,1.3);
+  add('clima',x,y,1.6,1.4,box(x,y,0,1.6,1.4,1.3,'#dfe5ea')
+    +`<ellipse cx="${c[0]}" cy="${c[1]}" rx="${.52*S*1.2247}" ry="${.52*S*.707}" fill="#5c6b7d"/>`
+    +`<ellipse cx="${c[0]}" cy="${c[1]}" rx="${.18*S*1.2247}" ry="${.18*S*.707}" fill="#c9d3dd"/>`
+    +line3([x+.2,y+1.4,.5],[x+1.4,y+1.4,.5],'led','stroke="#3aa0d8"'));
+});
+// Energía
+[9.2,12.2,15.2].forEach(x=>{
+  add('energia',x,.8,2.7,1.3,box(x,.8,0,2.1,1.3,1.35,'#f0a020')+box(x+2.1,.8,0,.55,1.3,1.7,'#3d4756')
+    +line3([x+.3,2.1,.9],[x+1.6,2.1,.9],'led','stroke="#7a4a00"'));
+});
+[9.2,10.5,11.8].forEach(x=>add('energia',x,3.2,1.1,1.2,box(x,3.2,0,1.1,1.2,2,'#e8ecf0')+faceY(x+.3,4.4,1.3,.5,.35,'#39c27a')));
+[13.6,14.9].forEach(x=>add('energia',x,3.2,1.1,1.2,box(x,3.2,0,1.1,1.2,1.5,'#3f6fd0')+line3([x+.2,4.4,1],[x+.9,4.4,1],'led','stroke="#bcd3ff"')));
+add('energia',17,3,1.7,1.6,box(17,3,0,1.7,1.6,1.6,'#8a96a4')+box(17.3,3.3,1.6,.3,.3,.4,'#c96f2e')+box(18.1,3.3,1.6,.3,.3,.4,'#c96f2e'));
+// Sala TI
+for(let i=0;i<7;i++){rack('ti',.8+i*1.12,6.8,2.7,'#2b3547','#4be08a');rack('ti',.8+i*1.12,10.6,2.7,'#2b3547','#4be08a');}
+// Incendios
+[[8.75,7.1],[8.75,10.9],[.15,9]].forEach(([x,y])=>add('fuego',x,y,.4,.4,box(x,y,0,.4,.4,1.5,'#d93a34')+box(x+.12,y+.12,1.5,.16,.16,.2,'#8c9aa8')));
+// Almacenamiento
+[[10.6,6.6],[12.3,6.6],[10.6,8.3],[12.3,8.3]].forEach(([x,y])=>{
+  let s='';for(let k=0;k<3;k++){s+=box(x,y,k*.64,1.3,1.2,.58,'#42546f');
+    for(let j=0;j<5;j++)s+=line3([x+.12+j*.22,y+1.2,k*.64+.14],[x+.12+j*.22,y+1.2,k*.64+.44],'led','stroke="#35d0c4" stroke-width="2.6"');}
+  add('alm',x,y,1.3,1.2,s);
+});
+// Red
+[['#2f6fc0','#bfe0ff'],['#b0463a','#ffd0c4'],['#1f8a8a','#c4fff4']].forEach(([c,l],i)=>rack('red',10.6+i*1.2,11.4,2.3,c,l,8));
+// NOC
+add('noc',15.8,5.9,3.4,.15,box(15.8,5.9,.4,3.4,.15,1.8,'#2b3547')+faceY(15.95,6.05,.6,3.1,1.4,'#57c8f0','opacity=".9"')
+  +line3([16.2,6.05,1.0],[17.2,6.05,1.5],'led','stroke="#0b4f6e"')+line3([17.2,6.05,1.5],[17.9,6.05,1.2],'led','stroke="#0b4f6e"')+line3([17.9,6.05,1.2],[18.7,6.05,1.7],'led','stroke="#0b4f6e"'));
+[7.3,8.9].forEach(y=>{let s=box(15.8,y,0,3.2,.8,.7,'#e4e9ee');
+  [16.1,17.1,18.1].forEach(x=>{s+=box(x,y+.2,.7,.7,.08,.5,'#2b3547')+faceY(x+.05,y+.28,.75,.6,.4,'#57c8f0');});
+  add('noc',15.8,y,3.2,.8,s);});
+// Acceso y seguridad
+add('seg',15.6,11.2,.3,2,box(15.6,11.2,0,.3,.9,1.1,'#8a96a4')+box(15.6,12.5,0,.3,.9,1.1,'#8a96a4')+faceY(15.6,12.1,.2,.3,.7,'#57c8f0','opacity=".7"'));
+add('seg',17.6,11.4,1.2,1,box(17.6,11.4,0,1.2,1,.9,'#e4e9ee')+box(17.9,11.7,.9,.5,.08,.45,'#2b3547'));
+add('seg',16.3,15.1,1.5,1.2,box(16.3,15.1,0,1.4,1.2,1.5,'#f1f4f7')+faceY(16.5,16.3,.7,1,.6,'#57c8f0')+box(16.2,15,1.5,1.6,1.4,.2,'#e2574c'));
+add('seg',18.2,15.6,2.6,.2,box(18.2,15.6,0,.2,.2,1,'#3d4756')+box(18.4,15.65,.8,2.4,.1,.1,'#e2574c'));
+
+function buildScene(){
+  let s='';
+  s+=poly(rect(13.5,14,8,3.4),'','class="apron"');
+  s+=poly([P(0,0,2.6),P(20,0,2.6),P(20,0,0),P(0,0,0)],'','class="wall"')+poly([P(0,0,2.6),P(0,14,2.6),P(0,14,0),P(0,0,0)],'','class="wall"');
+  s+=poly(rect(0,0,20,14),'','class="floor"');
+  for(let i=2;i<20;i+=2)s+=line3([i,0,0],[i,14,0],'tile');
+  for(let j=2;j<14;j+=2)s+=line3([0,j,0],[20,j,0],'tile');
+  const zones=[['clima',0,0,7.6,5.2],['energia',8.2,0,11.8,5.2],['ti',0,5.8,9.4,8.2],['alm',10,5.8,4.4,4.2],['red',10,10.4,4.4,3.6],['noc',15,5.8,5,4.2],['seg',15,10.4,5,3.6]];
+  zones.forEach(([z,x,y,w,d])=>s+=poly(rect(x,y,w,d),'',`class="zf" data-z="${z}"`));
+  // fibra hacia el exterior
+  const fiber=[[12.3,13.4],[12.3,19.6]].map(p=>P(p[0],p[1]));
+  s+=`<g class="obj" data-z="fibra"><polyline class="fiber" points="${pts(fiber)}"/><polyline class="fiber" points="${pts([[12.7,13.4],[12.7,19.6]].map(p=>P(p[0],p[1])))}" opacity=".55"/></g>`;
+  objs.sort((a,b)=>a.k-b.k).forEach(o=>s+=`<g class="obj" data-z="${o.zone}">${o.svg}</g>`);
+  // tubería de extinción sobre las filas
+  s+=`<g class="obj" data-z="fuego">`+[7.4,11.2].map(y=>line3([.8,y,3.3],[8.95,y,3.3],'led','stroke="#d93a34" stroke-width="2.5"')+line3([8.95,y,3.3],[8.95,y-.1,1.7],'led','stroke="#d93a34" stroke-width="2.5"')
+    +[2,4,6,8].map(x=>{const p=P(x,y,3.3);return `<circle cx="${p[0]}" cy="${p[1]+3}" r="2.5" fill="#d93a34"/>`}).join('')).join('')+`</g>`;
+  // nube / usuarios
+  const c=P(12.5,20.6,1.2);
+  s+=`<g class="obj" data-z="inet"><g fill="#7fb6dc"><ellipse cx="${c[0]}" cy="${c[1]}" rx="34" ry="15"/><circle cx="${c[0]-16}" cy="${c[1]-9}" r="13"/><circle cx="${c[0]+6}" cy="${c[1]-14}" r="17"/><circle cx="${c[0]+24}" cy="${c[1]-5}" r="11"/></g><text class="cloudtxt" x="${c[0]}" y="${c[1]+32}">Internet · usuarios</text></g>`;
+  // flujo de datos (solo en ciertas paradas)
+  const fl=[[12.5,20],[12.5,13.2],[9.75,13.2],[9.75,10.15],[5,10.15],[9.75,10.15],[9.75,8.2],[10.6,8.2]].map(p=>P(p[0],p[1],.05));
+  const d='M'+fl.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' L');
+  const still=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  s+=`<g id="flow" hidden><path id="fp" class="flow" d="${d}"/>${still?'':`<circle r="7" fill="var(--warn)" stroke="var(--surface)" stroke-width="2"><animateMotion dur="7s" repeatCount="indefinite"><mpath href="#fp"/></animateMotion></circle>`}</g>`;
+  // pines
+  PINS.forEach(([z,x,y,h,t,n])=>{const p=P(x,y,h);
+    s+=`<g class="pin" data-z="${z}" tabindex="0" role="button" aria-label="${t}"><line x1="${p[0]}" y1="${p[1]+9}" x2="${p[0]}" y2="${p[1]+22}" stroke="var(--ink)" stroke-width="1.2"/><circle cx="${p[0]}" cy="${p[1]}" r="10"/><text class="n" x="${p[0]}" y="${p[1]+4}">${n}</text><text class="t" x="${p[0]+15}" y="${p[1]+4.5}">${t}</text></g>`});
+  $('#svg').innerHTML=s;
+}
+const PINS=[['seg',17,15.6,2.9,'Seguridad física',2],['fibra',12.5,17.4,.9,'Interconexión',3],['red',11.6,12,3.2,'Red',4],['ti',3.4,8.8,3.7,'Sala TI · servidores',5],
+  ['alm',11.6,7.6,2.9,'Almacenamiento',6],['energia',13.4,2.2,2.9,'Energía',7],['clima',2.6,2.2,2.3,'Climatización',8],['fuego',8.95,11.1,2.6,'Incendios',9],['noc',17.4,7.6,3.2,'NOC',10]];
+
+/* ================= CONTENIDO ================= */
+const OSI=[null,
+ {n:1,name:'Física',pdu:'Bits',proto:'Fibra óptica, cobre Cat 6A, radio Wi-Fi y Bluetooth',enc:'convierte la trama en señales: luz en la fibra, electricidad en el cobre u ondas de radio.',dec:'recibe la señal y reconstruye los bits 1 y 0.'},
+ {n:2,name:'Enlace de datos',pdu:'Trama',proto:'Ethernet, MAC, VLAN 802.1Q, Wi-Fi 802.11, ARP',enc:'añade direcciones MAC de origen y destino y un código de verificación (FCS).',dec:'comprueba que la MAC destino es la suya y que la trama llegó sin errores.'},
+ {n:3,name:'Red',pdu:'Paquete',proto:'IPv4, IPv6, ICMP, OSPF, BGP',enc:'añade las direcciones IP de origen y destino para poder cruzar varias redes.',dec:'verifica que la IP destino es la del servidor y entrega el contenido a transporte.'},
+ {n:4,name:'Transporte',pdu:'Segmento',proto:'TCP, UDP, puertos',enc:'divide los datos en segmentos y añade puertos (origen efímero, destino 443).',dec:'reordena los segmentos, confirma la recepción y entrega al puerto 443.'},
+ {n:5,name:'Sesión',pdu:'Datos',proto:'Sesiones TLS, RPC, NetBIOS',enc:'abre y mantiene el diálogo con el servidor mientras dure la consulta.',dec:'asocia los datos con la sesión abierta del estudiante.'},
+ {n:6,name:'Presentación',pdu:'Datos',proto:'TLS, UTF-8, JSON, JPEG, gzip',enc:'da formato a los datos, los comprime y los cifra con TLS.',dec:'descifra y descomprime para que la aplicación pueda leerlos.'},
+ {n:7,name:'Aplicación',pdu:'Datos',proto:'HTTP/HTTPS, DNS, SMTP, SSH, FTP',enc:'el navegador crea la petición «GET /notas» con HTTPS.',dec:'el servidor web recibe «GET /notas» y sabe qué le piden.'}];
+
+const STEPS=[
+/* ---------- INFRAESTRUCTURA ---------- */
+{ch:0,t:'Vista general',zones:[],lead:'Un centro de datos es un edificio diseñado para que servidores, redes y almacenamiento funcionen sin parar, todos los días del año. Para lograrlo no basta con los equipos de cómputo: el edificio entrega energía, frío, seguridad y conectividad de forma continua.',
+ items:[['Carga TI','Servidores, almacenamiento y equipos de red. Es lo que procesa y guarda la información.'],['Instalaciones','Energía, climatización, protección contra incendios y seguridad física. Mantienen viva la carga TI.'],['Operación','Personas y software que vigilan todo desde el centro de operaciones (NOC).']],
+ viz:()=>`<h3>Niveles de disponibilidad (Uptime Institute)</h3><div class="tiers">
+  <div><b>Tier I</b><strong>99,671 %</strong><small>Capacidad básica. Hasta 28,8 h caído al año.</small></div>
+  <div><b>Tier II</b><strong>99,741 %</strong><small>Componentes redundantes. Hasta 22 h al año.</small></div>
+  <div><b>Tier III</b><strong>99,982 %</strong><small>Mantenimiento sin apagar. Hasta 1,6 h al año.</small></div>
+  <div><b>Tier IV</b><strong>99,995 %</strong><small>Tolerante a fallos. Hasta 26 min al año.</small></div></div>`,
+ q:'Si la plataforma de notas de la universidad se cae 22 horas al año, ¿qué nivel Tier tendría su centro de datos?'},
+{ch:0,t:'Seguridad física',zones:['seg'],lead:'Antes de llegar a un servidor hay que pasar varios anillos de control. La información vale más que los equipos, así que el acceso se registra y se limita por zonas.',
+ items:[['Perímetro','Cerca, garita con vigilante y barrera vehicular.'],['Control de acceso','Tarjeta, PIN y biometría. Una esclusa deja pasar una sola persona a la vez.'],['Videovigilancia','Cámaras con grabación continua en accesos, pasillos y salas.'],['Registro','Cada ingreso queda anotado: quién, cuándo y a qué sala.']],
+ facts:[['Normas habituales','ISO 27001 · PCI DSS']],q:'¿Por qué un técnico de climatización no debería poder entrar a la sala de servidores?'},
+{ch:0,t:'Interconexión',zones:['fibra','inet'],lead:'El centro de datos se conecta con el mundo por fibra óptica. Los cables de los operadores entran por rutas separadas para que un corte en la calle no deje el sitio aislado.',
+ items:[['Acometidas de fibra','Dos o más entradas físicas por caminos distintos.'],['Sala de interconexión','Punto donde llegan los operadores y se cruzan con la red interna (meet-me room).'],['Proveedores','Varios operadores de Internet a la vez; si uno falla, el tráfico sale por otro.'],['Nubes','Enlaces directos hacia nubes públicas para armar entornos híbridos.']],
+ facts:[['Medio','Fibra monomodo'],['Capa OSI','1 · Física']],q:'¿Qué pasa con una empresa si su único cable de fibra se rompe en una obra de la calle?'},
+{ch:0,t:'Red',zones:['red'],lead:'Aquí se decide por dónde viaja cada dato. Los equipos de red reciben el tráfico de la fibra, lo filtran y lo reparten hacia los servidores.',
+ items:[['Router (azul)','Une redes distintas y elige la mejor ruta usando direcciones IP. Capa 3.'],['Firewall (rojo)','Permite o bloquea tráfico según reglas de IP, puerto y aplicación. Capas 3 a 7.'],['Switch (verde)','Conecta los servidores entre sí usando direcciones MAC y separa grupos con VLAN. Capa 2.'],['Balanceador','Reparte las peticiones entre varios servidores para que ninguno se sature.']],
+ facts:[['Velocidades típicas','10 / 25 / 100 Gb/s']],q:'¿Cuál es la diferencia entre lo que mira un switch (MAC) y lo que mira un router (IP)?'},
+{ch:0,t:'Sala TI · servidores',zones:['ti'],lead:'Es el corazón del edificio. Los servidores se montan en gabinetes llamados racks y ejecutan las aplicaciones, las páginas web y los motores de bases de datos.',
+ items:[['Rack','Gabinete estándar de 19 pulgadas y 42 U de altura (1 U = 4,45 cm).'],['Servidor','Computador sin pantalla, con varias CPU, mucha memoria y fuentes de poder dobles.'],['Pasillo frío y caliente','Los racks toman aire frío por el frente y expulsan aire caliente por detrás; las filas se enfrentan para no mezclar los aires.'],['Virtualización','Un servidor físico aloja muchas máquinas virtuales o contenedores.']],
+ facts:[['Consumo por rack','5 a 15 kW'],['Con GPU para IA','40 kW o más']],q:'¿Por qué los servidores no tienen pantalla ni teclado?'},
+{ch:0,t:'Almacenamiento',zones:['alm'],lead:'Los datos de las bases de datos viven aquí, en equipos dedicados con cientos de discos. Los servidores los usan a través de la red como si fueran discos propios.',
+ items:[['SAN','Red de almacenamiento que entrega bloques de disco a los servidores. Es lo habitual para bases de datos.'],['NAS','Almacenamiento de archivos compartidos por red.'],['RAID','Combina discos para que la falla de uno no pierda información.'],['NVMe / SSD','Discos de estado sólido, muy rápidos, para datos que se consultan a toda hora.'],['Copias de respaldo','Copias periódicas, con al menos una fuera del edificio.']],
+ facts:[['Regla de respaldo','3 copias · 2 medios · 1 fuera']],q:'Si se daña un disco, ¿qué evita que se pierdan las notas de todos los estudiantes?'},
+{ch:0,t:'Energía',zones:['energia'],lead:'Sin electricidad no hay nada. La energía llega de la red pública, pero el edificio puede sostenerse solo durante horas o días.',
+ items:[['Transformador','Baja la media tensión de la red pública al voltaje del edificio.'],['UPS (gabinetes grises)','Baterías que sostienen la carga al instante cuando falla la red, durante unos minutos.'],['Baterías (azules)','Bancos que alimentan a las UPS.'],['Generadores (naranja)','Motores diésel que arrancan en segundos y relevan a las baterías.'],['PDU','Regletas que reparten la energía dentro de cada rack, por dos circuitos distintos (A y B).']],
+ facts:[['Redundancia','N+1 o 2N'],['Arranque del generador','10 a 15 s']],q:'¿Para qué sirven las baterías si ya hay generadores?'},
+{ch:0,t:'Climatización',zones:['clima'],lead:'Casi toda la electricidad que consume un servidor termina convertida en calor. Si no se retira, los equipos se apagan en minutos.',
+ items:[['Unidades CRAC / CRAH','Enfrían el aire de la sala y lo impulsan por el piso elevado hacia el pasillo frío.'],['Enfriadoras (chillers)','Producen agua helada para las unidades de la sala.'],['Refrigeración líquida','Lleva líquido hasta el chip en racks de muy alta densidad.'],['Sensores','Miden temperatura y humedad en cada pasillo, minuto a minuto.']],
+ facts:[['Temperatura de entrada','18 a 27 °C (ASHRAE)'],['PUE','energía total ÷ energía TI']],q:'Un PUE de 1,5 significa que por cada 100 W de servidores se gastan 50 W más. ¿En qué se gastan?'},
+{ch:0,t:'Protección contra incendios',zones:['fuego'],lead:'Un incendio se combate sin agua, porque el agua destruiría los equipos. El sistema detecta el humo muy temprano y apaga el fuego con gas.',
+ items:[['Detección temprana','Tubos que aspiran aire de la sala y detectan partículas de humo antes de que haya llama.'],['Agentes limpios','Gases que apagan el fuego sin dejar residuos ni conducir electricidad (cilindros rojos).'],['Tubería y boquillas','Red sobre las filas de racks que descarga el gas en segundos.'],['Sectorización','Muros y puertas cortafuego que aíslan cada sala.']],
+ q:'¿Por qué no se usan rociadores de agua comunes en la sala de servidores?'},
+{ch:0,t:'Centro de operaciones (NOC)',zones:['noc'],lead:'Desde esta sala, un equipo de personas vigila el edificio y los sistemas las 24 horas. Si algo se sale de lo normal, una alarma avisa antes de que el usuario lo note.',
+ items:[['Monitoreo','Tableros con el estado de servidores, red, energía y temperatura.'],['DCIM','Software que reúne los datos del edificio y de los equipos en un solo lugar.'],['Mantenimiento','Cambios y reparaciones programados, con procedimientos escritos.'],['Atención de incidentes','Guardia permanente que responde a fallas siguiendo niveles de servicio.']],
+ facts:[['Turnos','24 × 7 × 365']],q:'¿Qué dato del edificio guardarías cada minuto para detectar un problema a tiempo?'},
+
+/* ---------- MODELO OSI ---------- */
+{ch:1,t:'¿Qué es el modelo OSI?',zones:[],flow:true,lead:'El modelo OSI divide la comunicación entre dos equipos en siete capas. Cada capa hace un trabajo concreto y le entrega el resultado a la siguiente. Sirve para entender, diseñar y diagnosticar redes: cuando algo falla, se revisa capa por capa.',
+ items:[['Capas 7, 6 y 5','Las maneja el software: la aplicación, el formato de los datos y la conversación.'],['Capa 4','Lleva los datos de un programa a otro, de extremo a extremo.'],['Capas 3, 2 y 1','Las maneja la red: rutas, enlaces locales y señales físicas.'],['Encapsulación','Al enviar, cada capa añade su propia cabecera. Al recibir, cada capa la retira.']],
+ viz:()=>osiViz(0),q:'¿Por qué es útil separar un problema grande en capas?'},
+...[7,6,5,4,3,2,1].map(n=>({ch:1,osi:n,t:`Capa ${n} · ${OSI[n].name}`,zones:{7:['ti','inet'],6:['ti'],5:['ti'],4:['red'],3:['red'],2:['red','ti'],1:['fibra','red','inet']}[n],flow:true,...{
+ 7:{lead:'Es la capa que usa la persona o el programa. Aquí viven los protocolos con los que las aplicaciones piden y entregan servicios.',
+    items:[['Función','Ofrecer servicios de red a las aplicaciones: web, correo, nombres, archivos.'],['En el centro de datos','Servidores web y de aplicaciones, servidores DNS, firewall de aplicaciones.'],['Ejemplo','El navegador del estudiante pide «GET /notas» por HTTPS.'],['Analogía','Escribir la carta con lo que quieres decir.']],q:'Nombra tres aplicaciones que uses a diario y el protocolo de capa 7 que utilizan.'},
+ 6:{lead:'Se ocupa de que los datos tengan un formato que ambos lados entiendan, y de protegerlos.',
+    items:[['Función','Traducir formatos, comprimir y cifrar.'],['En el centro de datos','El servidor cifra y descifra con TLS; a veces lo hace el balanceador.'],['Ejemplo','El texto se codifica en UTF-8, se comprime con gzip y se cifra con TLS.'],['Analogía','Traducir la carta al idioma del destinatario y sellar el sobre.']],q:'¿Qué vería un intruso en la red si los datos viajaran sin cifrar?'},
+ 5:{lead:'Organiza la conversación: la abre, la mantiene y la cierra en orden.',
+    items:[['Función','Establecer, mantener y terminar sesiones entre dos aplicaciones.'],['En el centro de datos','Los servidores recuerdan qué sesión pertenece a cada usuario.'],['Ejemplo','La sesión del estudiante sigue abierta mientras revisa varias materias.'],['Analogía','Una llamada telefónica: saludar, conversar y colgar.']],q:'¿Qué pasaría si el servidor olvidara tu sesión en cada clic?'},
+ 4:{lead:'Lleva los datos del programa de origen al programa de destino. Decide si la entrega debe ser confiable o rápida.',
+    items:[['Función','Dividir en segmentos, numerarlos, confirmar la entrega y controlar el flujo.'],['TCP y UDP','TCP confirma cada entrega (web, bases de datos). UDP no confirma y es más rápido (voz, video, DNS).'],['Puertos','Identifican el programa: 443 HTTPS, 3306 MySQL, 5432 PostgreSQL.'],['En el centro de datos','Firewalls y balanceadores miran los puertos para permitir y repartir el tráfico.'],['Analogía','Correo certificado con acuse de recibo frente a un volante repartido en la calle.']],q:'¿Por qué una videollamada prefiere UDP y una transferencia bancaria prefiere TCP?'},
+ 3:{lead:'Encuentra el camino entre redes distintas. Usa direcciones lógicas (IP) que identifican a cada equipo en cualquier parte del mundo.',
+    items:[['Función','Direccionamiento IP y enrutamiento de paquetes.'],['IPv4 e IPv6','IPv4 usa 32 bits (10.10.10.10). IPv6 usa 128 bits (2001:db8::10).'],['En el centro de datos','Routers de borde y switches de capa 3.'],['Ejemplo','El paquete salta de router en router; cada salto resta 1 al contador TTL.'],['Analogía','La dirección postal y las oficinas de correo que eligen la ruta.']],q:'¿Por qué se agotaron las direcciones IPv4 y qué resuelve IPv6?'},
+ 2:{lead:'Entrega los datos entre equipos conectados al mismo enlace. Usa direcciones físicas (MAC) grabadas en cada tarjeta de red.',
+    items:[['Función','Armar tramas, direccionar por MAC y detectar errores.'],['VLAN','Divide un mismo switch en redes separadas: una para servidores, otra para usuarios.'],['En el centro de datos','Switches, tarjetas de red de los servidores y puntos de acceso Wi-Fi.'],['Ejemplo','El switch aprende en qué puerto está cada MAC y envía la trama solo por ese puerto.'],['Analogía','El cartero que conoce cada puerta de su cuadra.']],q:'Si la IP es la dirección de tu casa, ¿qué sería la MAC?'},
+ 1:{lead:'Transporta los bits como señales físicas. Aquí están los cables, los conectores y las ondas de radio.',
+    items:[['Función','Convertir bits en luz, electricidad u ondas, y viceversa.'],['Medios','Fibra óptica, cable de cobre, Wi-Fi (2,4 / 5 / 6 GHz) y Bluetooth (2,4 GHz).'],['En el centro de datos','Fibras, paneles de conexión, transceptores ópticos y el cableado de cada rack.'],['Ejemplo','Un pulso de luz en la fibra representa un 1; la ausencia, un 0.'],['Analogía','La carretera y el camión que llevan la carta.']],q:'¿Qué ventajas tiene la fibra óptica frente al cable de cobre?'}
+ }[n],viz:()=>osiViz(n)})),
+{ch:1,t:'El viaje de una petición',zones:['inet','fibra','red','ti','alm'],flow:true,lead:'Una estudiante abre el portal y consulta sus notas. Los datos bajan por las siete capas en su computador, cruzan la red y suben por las siete capas en el servidor, que pregunta a la base de datos y responde por el mismo camino.',
+ viz:()=>journeyViz(),
+ items:[['En el plano','El punto naranja sigue la ruta: Internet, fibra, sala de red, servidores y almacenamiento.'],['Encapsular','Al bajar, cada capa añade su cabecera.'],['Desencapsular','Al subir, cada capa retira la cabecera que le corresponde.']],
+ q:'Si la página no carga, ¿por cuál capa empezarías a revisar y por qué?'},
+
+/* ---------- BASES DE DATOS ---------- */
+{ch:2,t:'¿Qué es una base de datos?',zones:['ti','alm'],lead:'Una base de datos es una colección organizada de datos que se puede consultar, actualizar y proteger. El programa que la administra se llama sistema gestor de bases de datos (SGBD).',
+ items:[['Dato e información','«4,5» es un dato. «Ana sacó 4,5 en Redes» es información.'],['SGBD','Software que guarda los datos, responde consultas, controla quién accede y hace copias.'],['Dónde vive','El motor corre en los servidores de la sala TI y escribe en los equipos de almacenamiento.'],['Cómo se consulta','La aplicación se conecta por la red a un puerto del motor, por ejemplo 5432 en PostgreSQL.'],['Operaciones básicas','Crear, leer, actualizar y borrar (CRUD).']],
+ viz:()=>`<h3>Del clic a la respuesta</h3><div class="pdu" style="--c:var(--accent)"><span>Navegador</span><span>→ Servidor web</span><span>→ Aplicación</span><span>→ SGBD</span><span>→ Discos</span></div>`,
+ q:'¿Qué problemas tendría la universidad si guardara las notas en hojas de cálculo sueltas?'},
+{ch:2,t:'Relacional (SQL)',zones:['ti','alm'],lead:'Organiza los datos en tablas con filas y columnas. Las tablas se relacionan mediante claves, y todo se consulta con el lenguaje SQL. Es el modelo más usado en empresas.',
+ viz:()=>`<h3>Los mismos datos como tablas</h3><div class="two"><div class="scroll"><table class="t"><caption>estudiantes</caption><tr><th>id</th><th>nombre</th><th>programa</th></tr><tr><td>101</td><td>Ana Ruiz</td><td>Sistemas</td></tr><tr><td>102</td><td>Luis Mora</td><td>Sistemas</td></tr></table></div>
+ <div class="scroll"><table class="t"><caption>notas</caption><tr><th>id_est</th><th>materia</th><th>nota</th></tr><tr><td>101</td><td>Redes</td><td>4,5</td></tr><tr><td>101</td><td>Bases de datos</td><td>4,1</td></tr><tr><td>102</td><td>Redes</td><td>3,8</td></tr></table></div></div>
+ <pre class="code">SELECT e.nombre, n.materia, n.nota
+FROM estudiantes e
+JOIN notas n ON n.id_est = e.id
+WHERE e.id = 101;</pre>`,
+ items:[['Ejemplos','PostgreSQL, MySQL, Oracle, SQL Server, MariaDB.'],['Fortalezas','Datos consistentes, transacciones ACID y consultas complejas con JOIN.'],['Límites','El esquema es rígido y escalar a muchos servidores es más difícil.'],['Úsala para','Bancos, matrículas, inventarios, facturación.']],
+ q:'¿Qué columna une la tabla de estudiantes con la tabla de notas?'},
+{ch:2,t:'Documental',zones:['ti','alm'],lead:'Guarda cada registro como un documento, casi siempre en formato JSON. Cada documento puede tener campos distintos y contener listas u otros documentos dentro.',
+ viz:()=>`<h3>Los mismos datos como documento</h3><pre class="code">{
+  "_id": 101,
+  "nombre": "Ana Ruiz",
+  "programa": "Sistemas",
+  "notas": [
+    { "materia": "Redes", "nota": 4.5 },
+    { "materia": "Bases de datos", "nota": 4.1 }
+  ]
+}</pre>`,
+ items:[['Ejemplos','MongoDB, Couchbase, Firestore.'],['Fortalezas','Esquema flexible y lectura de un registro completo en un solo paso.'],['Límites','Las relaciones entre documentos y los datos repetidos son más difíciles de mantener.'],['Úsala para','Catálogos, perfiles de usuario, contenido de aplicaciones móviles.']],
+ q:'Aquí las notas van dentro del estudiante. ¿Qué ventaja y qué riesgo trae eso?'},
+{ch:2,t:'Clave-valor',zones:['ti','alm'],lead:'Es el modelo más simple: cada dato se guarda bajo una clave única, como en un diccionario. Muchas funcionan en memoria RAM y responden en menos de un milisegundo.',
+ viz:()=>`<h3>Los mismos datos como pares</h3><div class="kv"><span>est:101:nombre</span><span>→</span><span>"Ana Ruiz"</span><span>est:101:promedio</span><span>→</span><span>4.3</span><span>sesion:9f2c</span><span>→</span><span>usuario 101, expira en 30 min</span><span>cache:/notas/101</span><span>→</span><span>página ya calculada</span></div>`,
+ items:[['Ejemplos','Redis, Memcached, DynamoDB.'],['Fortalezas','Rapidez extrema y fácil de repartir entre muchos servidores.'],['Límites','Solo se busca por la clave; no hay consultas complejas.'],['Úsala para','Sesiones, caché, carritos de compra, contadores.']],
+ q:'¿Por qué guardar la sesión del usuario en memoria y no en disco?'},
+{ch:2,t:'Columnar',zones:['ti','alm'],lead:'Guarda los datos por columnas y no por filas. Para calcular un promedio lee solo la columna que necesita, así que analiza miles de millones de registros con rapidez.',
+ viz:()=>`<h3>Por filas frente a por columnas</h3><div class="two"><pre class="code">Por filas
+101 | Redes | 4.5
+102 | Redes | 3.8
+103 | Redes | 4.1</pre><pre class="code">Por columnas
+id:      101, 102, 103
+materia: Redes ×3
+nota:    4.5, 3.8, 4.1</pre></div><pre class="code">SELECT AVG(nota) FROM notas;  -- lee solo la columna «nota»</pre>`,
+ items:[['Ejemplos','ClickHouse, BigQuery, Redshift, Cassandra y HBase (familias de columnas).'],['Fortalezas','Análisis y sumas muy rápidas, y gran compresión.'],['Límites','Actualizar un registro a la vez es lento.'],['Úsala para','Bodegas de datos, reportes, analítica de grandes volúmenes.']],
+ q:'¿Qué tipo de preguntas de un rector se responden mejor con este modelo?'},
+{ch:2,t:'Grafos',zones:['ti','alm'],lead:'Representa los datos como nodos unidos por relaciones. La relación es tan importante como el dato, y recorrer conexiones es muy rápido.',
+ viz:()=>`<h3>Los mismos datos como grafo</h3><svg class="gsvg" viewBox="0 0 360 150" width="100%"><path class="ed" d="M70 40 L180 40 M70 110 L180 50 M290 40 L205 40 M60 55 L60 95"/><text class="el" x="100" y="33">CURSA</text><text class="el" x="100" y="96">CURSA</text><text class="el" x="228" y="33">DICTA</text><text class="el" x="66" y="80">AMIGA_DE</text>
+ <g><rect class="nd" x="20" y="25" width="80" height="30" rx="15"/><text x="60" y="44" text-anchor="middle">Ana</text><rect class="nd" x="20" y="95" width="80" height="30" rx="15"/><text x="60" y="114" text-anchor="middle">Luis</text><rect class="nd" x="150" y="25" width="80" height="30" rx="15"/><text x="190" y="44" text-anchor="middle">Redes</text><rect class="nd" x="260" y="25" width="90" height="30" rx="15"/><text x="305" y="44" text-anchor="middle">Prof. Gómez</text></g></svg>
+ <pre class="code">MATCH (e:Estudiante)-[:CURSA]->(m:Materia {nombre:'Redes'})
+RETURN e.nombre</pre>`,
+ items:[['Ejemplos','Neo4j, Amazon Neptune, ArangoDB.'],['Fortalezas','Preguntas sobre conexiones: quién conoce a quién, cuál es el camino más corto.'],['Límites','Poco adecuada para reportes masivos con sumas.'],['Úsala para','Redes sociales, recomendaciones, detección de fraude, mapas de red.']],
+ q:'¿Cómo dibujarías como grafo la topología de red del centro de datos?'},
+{ch:2,t:'Series temporales',zones:['noc','clima','alm'],lead:'Está hecha para datos que llegan con una marca de tiempo: mediciones, sensores, métricas. El propio centro de datos la usa para registrar temperatura, consumo y tráfico cada pocos segundos.',
+ viz:()=>`<h3>Temperatura del pasillo frío (°C)</h3><svg class="gsvg" viewBox="0 0 360 130" width="100%"><line class="ax" x1="34" y1="100" x2="350" y2="100"/><line class="ax" x1="34" y1="60" x2="350" y2="60"/><line class="ax" x1="34" y1="20" x2="350" y2="20"/>
+ <text x="4" y="104">20</text><text x="4" y="64">24</text><text x="4" y="24">28</text>
+ <path class="ar" d="M40 79 L90 77 L140 80 L190 70 L240 45 L290 66 L340 78 L340 100 L40 100Z"/><path class="ln" d="M40 79 L90 77 L140 80 L190 70 L240 45 L290 66 L340 78"/><circle class="q" cx="240" cy="45" r="4"/>
+ <text x="40" y="118" text-anchor="middle">10:00</text><text x="140" y="118" text-anchor="middle">10:02</text><text x="240" y="118" text-anchor="middle">10:04</text><text x="340" y="118" text-anchor="middle">10:06</text><text x="248" y="40">25,5 · alerta</text></svg>`,
+ items:[['Ejemplos','InfluxDB, TimescaleDB, Prometheus.'],['Fortalezas','Escritura muy rápida, compresión por tiempo y promedios por intervalo.'],['Límites','Pensada para agregar datos nuevos, no para editar los viejos.'],['Úsala para','Sensores, monitoreo de servidores, bolsa de valores, Internet de las cosas.']],
+ q:'A las 10:04 la temperatura subió. ¿Qué equipo del centro de datos revisarías primero?'},
+{ch:2,t:'Vectorial',zones:['ti','alm'],lead:'Guarda cada texto, imagen o audio como una lista de números llamada vector. Dos contenidos con significado parecido quedan cerca entre sí, y eso permite buscar por parecido y no por palabra exacta. Es la base de muchos sistemas de inteligencia artificial.',
+ viz:()=>`<h3>Búsqueda por cercanía</h3><svg class="gsvg" viewBox="0 0 360 140" width="100%"><line class="ax" x1="20" y1="125" x2="350" y2="125"/><line class="ax" x1="20" y1="10" x2="20" y2="125"/>
+ <circle class="pt" cx="90" cy="45" r="5"/><text x="100" y="42">router</text><circle class="pt" cx="110" cy="65" r="5"/><text x="120" y="70">switch</text><circle class="pt" cx="70" cy="75" r="5"/><text x="30" y="92">firewall</text>
+ <circle class="pt" cx="280" cy="95" r="5"/><text x="290" y="99">poema</text><circle class="pt" cx="255" cy="110" r="5"/><text x="215" y="122">novela</text>
+ <circle class="q" cx="95" cy="60" r="6"/><circle cx="95" cy="60" r="34" fill="none" stroke="var(--warn)" stroke-dasharray="4 3"/><text x="140" y="22">consulta: «equipo que conecta redes»</text></svg>`,
+ items:[['Ejemplos','Milvus, Pinecone, Qdrant, pgvector en PostgreSQL.'],['Fortalezas','Búsqueda semántica y recomendaciones por similitud.'],['Límites','Los resultados son aproximados y necesita un modelo que genere los vectores.'],['Úsala para','Asistentes con IA, buscadores de imágenes, recomendadores.']],
+ q:'¿En qué se diferencia buscar «router» por palabra exacta de buscarlo por significado?'},
+{ch:2,t:'Otras formas de clasificarlas',zones:['ti','alm','inet'],lead:'Además del modelo de datos, las bases de datos se clasifican por su ubicación, por el trabajo que hacen y por las garantías que ofrecen.',
+ items:[['Centralizada','Todo en un solo servidor. Es simple, pero ese servidor es un punto único de falla.'],['Distribuida','Los datos se reparten y se copian en varios servidores o centros de datos.'],['En la nube','El proveedor administra el motor y se paga por uso.'],['OLTP','Muchas operaciones pequeñas y rápidas: matricular, pagar, registrar una nota.'],['OLAP','Pocas consultas muy grandes para analizar: promedios por programa en diez años.'],['En memoria','Mantiene los datos en RAM para dar la mayor velocidad.']],
+ viz:()=>`<h3>Garantías</h3><div class="scroll"><table class="t wrapc"><tr><th>ACID (relacionales)</th><th>BASE (muchas NoSQL)</th></tr><tr><td>Cada transacción se completa entera o no se hace. Los datos quedan siempre consistentes.</td><td>Siempre responde, aunque por un instante dos servidores muestren valores distintos. Luego se igualan.</td></tr></table></div>
+ <pre class="code">Teorema CAP: ante una falla de red, un sistema distribuido
+debe elegir entre Consistencia y Disponibilidad.</pre>`,
+ q:'Para una transferencia bancaria, ¿prefieres ACID o BASE? ¿Y para los «me gusta» de una red social?'},
+{ch:2,t:'¿Cuál elegir?',zones:['ti','alm'],lead:'No hay una base de datos mejor que las demás. Se elige según la forma de los datos y las preguntas que se les van a hacer. Los sistemas grandes combinan varias.',
+ viz:()=>`<h3>Resumen comparativo</h3><div class="scroll"><table class="t wrapc"><tr><th>Tipo</th><th>Forma del dato</th><th>Ejemplo</th><th>Elígela cuando</th></tr>
+ <tr><td>Relacional</td><td>Tablas</td><td>PostgreSQL</td><td>Necesitas exactitud y relaciones claras.</td></tr>
+ <tr><td>Documental</td><td>JSON</td><td>MongoDB</td><td>Los registros cambian de forma.</td></tr>
+ <tr><td>Clave-valor</td><td>Pares</td><td>Redis</td><td>Buscas por una clave y quieres rapidez.</td></tr>
+ <tr><td>Columnar</td><td>Columnas</td><td>ClickHouse</td><td>Analizas grandes volúmenes.</td></tr>
+ <tr><td>Grafos</td><td>Nodos y relaciones</td><td>Neo4j</td><td>Importan las conexiones.</td></tr>
+ <tr><td>Series temporales</td><td>Valor + tiempo</td><td>InfluxDB</td><td>Registras mediciones continuas.</td></tr>
+ <tr><td>Vectorial</td><td>Vectores</td><td>Milvus</td><td>Buscas por significado.</td></tr></table></div>`,
+ items:[['En la universidad','Matrículas y notas en relacional, sesiones del portal en clave-valor, reportes del rector en columnar y sensores del centro de datos en series temporales.']],
+ q:'Diseña el sistema de una tienda en línea: ¿qué tipo de base de datos usarías para el catálogo, el carrito y los pagos?'}
+];
+const CH=[{id:'infra',t:'Infraestructura'},{id:'osi',t:'Modelo OSI'},{id:'bd',t:'Bases de datos'}];
+
+/* ================= VISUALES OSI ================= */
+function osiViz(n){
+  let h=`<h3>Las siete capas</h3><div class="osi">`;
+  for(let i=7;i>=1;i--)h+=`<button type="button" data-osi="${i}" class="${n===i||n===0?'on':''}" style="--c:var(--l${i})"><b>${i}</b><span>${OSI[i].name}</span><i>${OSI[i].pdu}</i></button>`;
+  h+=`</div>`;
+  if(n){const P=OSI[n];
+    h+=`<h3 style="margin-top:12px">Unidad de datos en la capa ${n}: ${P.pdu}</h3><div class="pdu">`;
+    if(n===1)h+=`<span class="bits">01001000 01010100 01010100 01010000 …</span>`;
+    else{ if(n<=2)h+=`<span style="--c:var(--l2)">MAC</span>`; if(n<=3)h+=`<span style="--c:var(--l3)">IP</span>`; if(n<=4)h+=`<span style="--c:var(--l4)">TCP</span>`;
+      h+=`<span style="--c:var(--l7)">Datos</span>`; if(n<=2)h+=`<span style="--c:var(--l2)">FCS</span>`; }
+    h+=`</div><p style="margin:8px 0 0;font-size:13px;color:var(--muted)">Protocolos: ${P.proto}</p>`;
+  } else h+=`<p style="margin:8px 0 0;font-size:13px;color:var(--muted)">Toca una capa para abrir su parada.</p>`;
+  return h;
+}
+let jTimer=null;
+function journeyViz(){
+  const st=side=>`<div><h4>${side}</h4><div class="stack" data-side="${side}">${[7,6,5,4,3,2,1].map(i=>`<div data-l="${i}" style="--c:var(--l${i})">${i} ${OSI[i].name}</div>`).join('')}</div></div>`;
+  return `<h3>Cliente y servidor</h3><div class="jr">${st('Cliente')}<div class="medium" id="jmed"></div>${st('Servidor')}</div>
+  <div style="text-align:right"><span class="dbbox" id="jdb">SGBD · SELECT … WHERE id = 101</span></div>
+  <p class="jstat" id="jstat">Pulsa el botón para ver el recorrido paso a paso.</p><button class="btn" type="button" id="jgo">Enviar petición</button>`;
+}
+function runJourney(){
+  clearInterval(jTimer);
+  const seq=[];[7,6,5,4,3,2,1].forEach(i=>seq.push(['Cliente',i,`Cliente · capa ${i} (${OSI[i].name}): ${OSI[i].enc}`]));
+  seq.push(['m',0,'Medio físico: la señal viaja por Wi-Fi, cobre y fibra hasta el centro de datos. Los routers la encaminan por IP y los switches la entregan por MAC.']);
+  [1,2,3,4,5,6,7].forEach(i=>seq.push(['Servidor',i,`Servidor · capa ${i} (${OSI[i].name}): ${OSI[i].dec}`]));
+  seq.push(['db',0,'La aplicación consulta la base de datos. El motor lee los discos del almacenamiento y devuelve las notas.']);
+  seq.push(['end',0,'La respuesta regresa por el mismo camino: baja las 7 capas en el servidor y sube las 7 capas en el cliente. La estudiante ve sus notas.']);
+  let k=0;const card=$('#card');
+  const tick=()=>{
+    card.querySelectorAll('.stack div,.medium,.dbbox').forEach(e=>e.classList.remove('on'));
+    const s=seq[k];if(!s){clearInterval(jTimer);return}
+    if(s[0]==='m')$('#jmed').classList.add('on');
+    else if(s[0]==='db')$('#jdb').classList.add('on');
+    else if(s[0]==='end')card.querySelectorAll('.stack div,.medium,.dbbox').forEach(e=>e.classList.add('on'));
+    else card.querySelector(`.stack[data-side="${s[0]}"] [data-l="${s[1]}"]`).classList.add('on');
+    $('#jstat').textContent=s[2];k++;
+  };
+  tick();jTimer=setInterval(tick,1700);
+}
+
+/* ================= NAVEGACIÓN ================= */
+let cur=0;
+const firstOf=c=>STEPS.findIndex(s=>s.ch===c);
+function render(){
+  clearInterval(jTimer);
+  const s=STEPS[cur],inCh=STEPS.filter(x=>x.ch===s.ch),pos=inCh.indexOf(s);
+  $('#chapters').innerHTML=CH.map((c,i)=>`<button type="button" data-ch="${i}" aria-pressed="${i===s.ch}">${c.t}</button>`).join('');
+  $('#rail').innerHTML=inCh.map((x,i)=>`<button type="button" data-i="${STEPS.indexOf(x)}" ${x===s?'aria-current="step"':''}><b>${i+1}</b>${esc(x.t)}</button>`).join('');
+  const act=$('#rail [aria-current]');if(act&&act.scrollIntoView)act.scrollIntoView({block:'nearest',inline:'nearest'});
+  $('#count').textContent=`${cur+1} / ${STEPS.length}`;
+  $('#prev').disabled=cur===0;$('#next').disabled=cur===STEPS.length-1;
+  let h=`<div><div class="eyebrow">${CH[s.ch].t} · parada ${pos+1} de ${inCh.length}</div><h2>${esc(s.t)}</h2></div><p class="lead">${esc(s.lead)}</p>`;
+  if(s.viz)h+=`<div class="viz">${s.viz()}</div>`;
+  if(s.items)h+=`<ul class="items">${s.items.map(([a,b])=>`<li><b>${esc(a)}</b><span>${esc(b)}</span></li>`).join('')}</ul>`;
+  if(s.facts)h+=`<div class="facts">${s.facts.map(([a,b])=>`<div class="fact"><small>${esc(a)}</small><strong>${esc(b)}</strong></div>`).join('')}</div>`;
+  if(s.q)h+=`<p class="ask"><b>Pregunta para la clase</b>${esc(s.q)}</p>`;
+  $('#card').innerHTML=h;
+  // escena
+  const svg=$('#svg'),z=s.zones||[];
+  svg.classList.toggle('focus',z.length>0);
+  svg.querySelectorAll('.obj,.zf,.pin').forEach(e=>e.classList.toggle('on',z.includes(e.dataset.z)));
+  $('#flow').toggleAttribute('hidden',!s.flow);
+}
+function go(i){cur=Math.max(0,Math.min(STEPS.length-1,i));render()}
+const zoneStep=z=>STEPS.findIndex(s=>s.ch===0&&s.zones.length===1&&s.zones[0]===z||s.ch===0&&z==='fibra'&&s.zones[0]==='fibra');
+
+buildScene();
+const h0=CH.findIndex(c=>'#'+c.id===location.hash);if(h0>0)cur=firstOf(h0);
+render();
+$('#prev').onclick=()=>go(cur-1);$('#next').onclick=()=>go(cur+1);
+$('#chapters').onclick=e=>{const b=e.target.closest('[data-ch]');if(b)go(firstOf(+b.dataset.ch))};
+$('#rail').onclick=e=>{const b=e.target.closest('[data-i]');if(b)go(+b.dataset.i)};
+$('#card').onclick=e=>{const o=e.target.closest('[data-osi]');if(o)return go(STEPS.findIndex(s=>s.osi===+o.dataset.osi));if(e.target.id==='jgo')runJourney()};
+const pick=e=>{const t=e.target.closest('[data-z]');if(!t)return;const z=t.dataset.z==='inet'?'fibra':t.dataset.z;const i=zoneStep(z);if(i>=0)go(i)};
+$('#svg').addEventListener('click',pick);
+$('#svg').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick(e)}});
+document.addEventListener('keydown',e=>{if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;if(e.key==='ArrowRight')go(cur+1);if(e.key==='ArrowLeft')go(cur-1)});
+})();
+</script>
+
+</body></html>
