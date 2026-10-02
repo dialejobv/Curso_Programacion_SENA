@@ -1,1 +1,2 @@
-# ejemplo_programacion
+# Curso Programación SENA 
+Curso orientado a los conceptos básicos de programación tanto de frontend y backend, con el propósito de que los estudiantes adquieran competencias en desarrollo de páginas web, lógica combinacional, lógica booleana, bases de datos relaciones, no relaciones y aplicativos responsives con principios de inteligencia artificial (chatbots conversacionales iniciales con lenguaje de procesamiento natural).
