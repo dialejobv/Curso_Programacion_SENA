@@ -1,0 +1,1274 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>AgroDatos Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: cuaderno de campo digital. Encabezado fijo con estado de la BD, pestañas por laboratorio,
+   cada laboratorio en dos columnas (material de trabajo | acción + resultado), bitácora SQL al pie. */
+:root{
+  --paper:#EEF1EA; --panel:#FAFBF8; --sunk:#E3E8DE; --ink:#18201A; --muted:#566257; --line:#CCD4C7;
+  --leaf:#2D6A3A; --leaf-ink:#FFFFFF; --leaf-soft:#D7E8D6; --soil:#7A5333; --sun:#B9800E;
+  --ok:#2E7D32; --ok-soft:#DDEFDC; --err:#B3261E; --err-soft:#F7DEDB; --warn:#9A6A00; --warn-soft:#F6EBCB;
+  --code-bg:#1E261F; --code-ink:#DCE8D8; --code-kw:#8FD49B; --code-str:#F2C46B;
+  --f-display:"Familjen Grotesk", "Arial Narrow", system-ui, sans-serif;
+  --f-body:"Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  --tox-I:#C62828; --tox-II:#F2C200; --tox-III:#1E5BB8; --tox-IV:#2E8B3E;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --paper:#111511; --panel:#181E19; --sunk:#202821; --ink:#E4EAE1; --muted:#9DAA9B; --line:#2F3A30;
+  --leaf:#7CC487; --leaf-ink:#0D1A10; --leaf-soft:#1F3524; --soil:#CFA27A; --sun:#E8B547;
+  --ok:#7CC487; --ok-soft:#1C3220; --err:#F08A80; --err-soft:#3A1E1B; --warn:#E8B547; --warn-soft:#3A2F14;
+  --code-bg:#0B0F0C; --code-ink:#D5E3D1; --code-kw:#8FD49B; --code-str:#F2C46B; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --paper:#111511; --panel:#181E19; --sunk:#202821; --ink:#E4EAE1; --muted:#9DAA9B; --line:#2F3A30;
+  --leaf:#7CC487; --leaf-ink:#0D1A10; --leaf-soft:#1F3524; --soil:#CFA27A; --sun:#E8B547;
+  --ok:#7CC487; --ok-soft:#1C3220; --err:#F08A80; --err-soft:#3A1E1B; --warn:#E8B547; --warn-soft:#3A2F14;
+  --code-bg:#0B0F0C; --code-ink:#D5E3D1; --code-kw:#8FD49B; --code-str:#F2C46B; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--paper);color:var(--ink)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.55}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;line-height:1.15;margin:0}
+h2{font-size:1.65rem;letter-spacing:-.01em}
+h3{font-size:1.1rem}
+p{margin:0}
+code,.mono{font-family:var(--f-mono);font-size:.86em}
+.muted{color:var(--muted)}
+.eyebrow{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+
+/* Encabezado */
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--paper);border-bottom:1px solid var(--line)}
+.top-inner{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding-block:12px}
+.brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.brand h1{font-size:1.45rem;letter-spacing:-.02em}
+.brand h1 b{color:var(--leaf)}
+.brand span{color:var(--muted);font-size:.85rem}
+.dbstate{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.pill{font-family:var(--f-mono);font-size:.72rem;padding:3px 8px;border-radius:99px;border:1px solid var(--line);background:var(--panel);white-space:nowrap;font-variant-numeric:tabular-nums}
+.pill.live{border-color:var(--leaf);color:var(--leaf)}
+.pill.dead{border-color:var(--err);color:var(--err)}
+nav.tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{flex:0 0 auto;font:600 .9rem var(--f-display);background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);padding:10px 12px 9px;cursor:pointer;display:flex;gap:8px;align-items:center}
+nav.tabs button .n{font-family:var(--f-mono);font-size:.72rem;border:1px solid var(--line);border-radius:5px;padding:0 5px}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--leaf)}
+nav.tabs button.done .n{background:var(--leaf);border-color:var(--leaf);color:var(--leaf-ink)}
+
+/* Laboratorios */
+main{padding-block:24px 40px}
+.lab-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:end;margin-bottom:20px}
+.lab-head p{max-width:70ch;color:var(--muted);margin-top:6px}
+.grid2{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:22px;align-items:start}
+.grid2 > *{min-width:0}
+@media (max-width:900px){.grid2{grid-template-columns:minmax(0,1fr)}.lab-head{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.panel.flat{background:transparent;border-style:dashed}
+.concept{border-left:3px solid var(--soil);padding:2px 0 2px 14px}
+.concept h3{font-size:1rem;margin-bottom:4px}
+
+/* Botones y campos */
+.btn{font:600 .88rem var(--f-body);border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 14px;border-radius:8px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.btn:hover{border-color:var(--leaf)}
+.btn.primary{background:var(--leaf);border-color:var(--leaf);color:var(--leaf-ink)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--sun);outline-offset:2px}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}
+.form .full{grid-column:1/-1}
+@media (max-width:520px){.form{grid-template-columns:minmax(0,1fr)}}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:.78rem;font-weight:600;color:var(--muted);display:flex;justify-content:space-between;gap:6px}
+.field label i{font-style:normal;font-family:var(--f-mono);font-weight:400;font-size:.7rem}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:8px 10px;width:100%;min-width:0}
+input:focus,select:focus,textarea:focus{border-color:var(--leaf);outline:none;box-shadow:0 0 0 3px var(--leaf-soft)}
+.field.bad input,.field.bad select{border-color:var(--err)}
+.field.good input,.field.good select{border-color:var(--ok)}
+input[type=range]{padding:0;accent-color:var(--leaf);background:none;border:0}
+
+/* Mensajes */
+.msg{border-radius:8px;padding:10px 12px;font-size:.9rem;border:1px solid}
+.msg.ok{background:var(--ok-soft);border-color:var(--ok);color:var(--ink)}
+.msg.err{background:var(--err-soft);border-color:var(--err);color:var(--ink)}
+.msg.warn{background:var(--warn-soft);border-color:var(--warn);color:var(--ink)}
+.msg b{font-weight:700}
+.msg ul{margin:6px 0 0;padding-left:18px}
+
+/* SQL */
+pre.sql{margin:0;background:var(--code-bg);color:var(--code-ink);font:400 .8rem/1.55 var(--f-mono);padding:12px 14px;border-radius:8px;overflow-x:auto;white-space:pre}
+pre.sql .k{color:var(--code-kw);font-weight:600}
+pre.sql .s{color:var(--code-str)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;max-height:340px;overflow-y:auto}
+table.data{border-collapse:collapse;width:100%;font-size:.82rem;font-variant-numeric:tabular-nums}
+table.data th{position:sticky;top:0;background:var(--sunk);text-align:left;font:600 .74rem var(--f-mono);padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.data td{padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.data tr:last-child td{border-bottom:0}
+table.data td.null{color:var(--muted);font-style:italic}
+
+/* Lab 1: diagrama ER */
+.er{width:100%;height:auto;display:block}
+.er-wrap{overflow-x:auto}
+.er-wrap svg{min-width:640px}
+.er .tbl rect.box{fill:var(--panel);stroke:var(--line);stroke-width:1.2}
+.er .tbl rect.hd{fill:var(--sunk)}
+.er .tbl{cursor:pointer}
+.er .tbl:hover rect.box,.er .tbl.sel rect.box{stroke:var(--leaf);stroke-width:2.2}
+.er .tbl.sel rect.hd{fill:var(--leaf-soft)}
+.er text{fill:var(--ink);font-family:var(--f-mono);font-size:11px}
+.er text.tn{font-family:var(--f-display);font-weight:700;font-size:13.5px}
+.er text.flag{font-size:9px;fill:var(--muted)}
+.er text.pk{fill:var(--sun);font-weight:600}
+.er text.fk{fill:var(--leaf);font-weight:600}
+.er line.rel,.er path.rel{stroke:var(--soil);stroke-width:1.6;fill:none}
+.er text.card{fill:var(--soil);font-weight:700;font-size:11px}
+.colrow{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) auto;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:.85rem;align-items:center}
+.colrow:last-child{border-bottom:0}
+.badge{font:600 .66rem var(--f-mono);padding:2px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.badge.PK{border-color:var(--sun);color:var(--sun)}
+.badge.FK{border-color:var(--leaf);color:var(--leaf)}
+.badge.UQ,.badge.CK{border-color:var(--soil);color:var(--soil)}
+.rel-q{display:grid;grid-template-columns:minmax(0,1fr) 130px 24px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.rel-q:last-of-type{border-bottom:0}
+.mark{font-weight:700;text-align:center}
+.mark.y{color:var(--ok)} .mark.n{color:var(--err)}
+
+/* Lab 2: anexos */
+.catalog{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.prod{border:1px solid var(--line);border-radius:8px;padding:10px 10px 0;background:var(--panel);cursor:pointer;text-align:left;font:inherit;color:inherit;display:flex;flex-direction:column;gap:2px;overflow:hidden}
+.prod:hover,.prod.sel{border-color:var(--leaf)}
+.prod.sel{box-shadow:0 0 0 2px var(--leaf-soft)}
+.prod b{font-family:var(--f-display);font-size:.95rem}
+.prod small{color:var(--muted);font-size:.75rem}
+.prod .st{font:600 .66rem var(--f-mono);letter-spacing:.04em;text-transform:uppercase;margin:6px 0 8px}
+.prod .st.r{color:var(--ok)} .prod .st.p{color:var(--warn)} .prod .st.w{color:var(--err)}
+.prod .band{height:6px;margin:0 -10px}
+.label{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);overflow:hidden}
+.label-body{padding:18px 18px 14px;display:flex;flex-direction:column;gap:12px}
+.label h3{font-size:1.5rem}
+.label .ia{font-style:italic;color:var(--muted)}
+.spec{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;border-top:1px solid var(--line)}
+.spec div{padding:9px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:1px;min-width:0}
+.spec div:nth-child(odd){padding-right:12px;border-right:1px solid var(--line)}
+.spec div:nth-child(even){padding-left:12px}
+.spec dt{font:600 .68rem var(--f-mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.spec dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums}
+.why{font-size:.8rem;color:var(--muted);font-weight:400}
+.toxband{padding:10px 18px;font:700 .8rem var(--f-display);letter-spacing:.06em;text-transform:uppercase;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.tox-I{background:var(--tox-I);color:#fff} .tox-II{background:var(--tox-II);color:#1a1a1a}
+.tox-III{background:var(--tox-III);color:#fff} .tox-IV{background:var(--tox-IV);color:#fff}
+details.help summary{cursor:pointer;font-weight:600;font-size:.88rem}
+details.help[open] summary{margin-bottom:8px}
+
+/* Lab 3: YOLO */
+.cv-wrap{position:relative;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:#3b2a1c}
+.cv-wrap canvas{display:block;width:100%;height:auto;max-width:100%}
+.cv-hud{position:absolute;left:10px;top:10px;font:600 .7rem var(--f-mono);color:#fff;background:rgba(0,0,0,.55);padding:4px 8px;border-radius:5px;pointer-events:none}
+.stages{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+@media (max-width:560px){.stages{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stage{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--panel);cursor:pointer;text-align:left;font:inherit;color:inherit}
+.stage[aria-pressed="true"]{border-color:var(--leaf);background:var(--leaf-soft)}
+.stage small{display:block;font:600 .66rem var(--f-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.stage strong{font:700 1.3rem var(--f-display);font-variant-numeric:tabular-nums}
+.slider{display:grid;grid-template-columns:minmax(0,1fr) 54px;gap:4px 10px;align-items:center}
+.slider label{grid-column:1/-1;font-size:.8rem;font-weight:600;color:var(--muted)}
+.slider output{font:600 .9rem var(--f-mono);text-align:right}
+.metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.metrics div{padding:8px 10px;border-right:1px solid var(--line)}
+.metrics div:last-child{border-right:0}
+.metrics small{display:block;font:600 .64rem var(--f-mono);color:var(--muted);text-transform:uppercase}
+.metrics b{font:700 1.15rem var(--f-display);font-variant-numeric:tabular-nums}
+@media (max-width:480px){.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.metrics div:nth-child(3){border-right:0}.metrics div:nth-child(-n+3){border-bottom:1px solid var(--line)}}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.8rem}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:3px;border:2px solid}
+.reco{display:flex;flex-direction:column;gap:10px}
+.reco-item{border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;background:var(--panel)}
+.reco-item .sev{grid-row:span 3;width:6px;border-radius:3px}
+.sev.hi{background:var(--err)} .sev.lo{background:var(--ok)} .sev.mid{background:var(--warn)}
+
+/* Preguntas */
+.q{border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:8px}
+.q:first-child{border-top:0;padding-top:0}
+.q p.qt{font-weight:600}
+.opts{display:flex;flex-direction:column;gap:6px}
+.opt{text-align:left;font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer;display:flex;gap:10px;align-items:flex-start}
+.opt:hover{border-color:var(--leaf)}
+.opt .l{font:600 .78rem var(--f-mono);color:var(--muted);padding-top:2px}
+.opt.right{border-color:var(--ok);background:var(--ok-soft)}
+.opt.wrong{border-color:var(--err);background:var(--err-soft)}
+.opt:disabled{cursor:default}
+.fb{font-size:.86rem;color:var(--muted)}
+.score{font:700 3rem var(--f-display);font-variant-numeric:tabular-nums;line-height:1}
+
+/* Lab 4 consola */
+.console textarea{font:400 .86rem/1.55 var(--f-mono);min-height:150px;background:var(--code-bg);color:var(--code-ink);border-color:var(--code-bg);resize:vertical}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:500 .76rem var(--f-mono);border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:4px 9px;border-radius:99px;cursor:pointer}
+.chip:hover{border-color:var(--leaf)}
+.reto{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 0;border-bottom:1px solid var(--line)}
+.reto:last-child{border-bottom:0}
+.reto .num{font:700 .8rem var(--f-mono);width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center}
+.reto.done .num{background:var(--leaf);border-color:var(--leaf);color:var(--leaf-ink)}
+.reto.active{background:linear-gradient(90deg,var(--leaf-soft),transparent 70%)}
+
+/* Bitácora */
+.log{margin-top:28px}
+.log summary{cursor:pointer;font:700 1rem var(--f-display);padding:10px 0}
+.log-list{display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto}
+.log-item{display:grid;grid-template-columns:62px minmax(0,1fr);gap:10px;align-items:start}
+.log-item time{font:500 .72rem var(--f-mono);color:var(--muted);padding-top:12px}
+.log-item.e pre.sql{border-left:3px solid var(--err)}
+
+.boot{padding:60px 0;text-align:center;color:var(--muted)}
+footer{border-top:1px solid var(--line);padding-block:18px;color:var(--muted);font-size:.8rem}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="top-inner">
+      <div class="brand"><h1>Agro<b>Datos</b> Lab</h1><span>Simulador de bases de datos para el cultivo</span></div>
+      <div class="dbstate" id="dbstate"><span class="pill" id="enginePill">Cargando motor SQL…</span></div>
+      <button class="btn ghost" id="resetDb" type="button" title="Borra todo y vuelve a los datos iniciales">Reiniciar base</button>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Laboratorios">
+      <button role="tab" data-lab="lab1" aria-selected="true"><span class="n">1</span>Modelo relacional</button>
+      <button role="tab" data-lab="lab2" aria-selected="false"><span class="n">2</span>Bodega de insumos</button>
+      <button role="tab" data-lab="lab3" aria-selected="false"><span class="n">3</span>Dron + YOLO</button>
+      <button role="tab" data-lab="lab4" aria-selected="false"><span class="n">4</span>Consola SQL</button>
+      <button role="tab" data-lab="lab5" aria-selected="false"><span class="n">5</span>Evaluación</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="bootMsg" class="boot">Preparando la base de datos de la finca…</div>
+
+  <!-- ═════════════ LAB 1 ═════════════ -->
+  <section id="lab1" class="lab" hidden>
+    <div class="lab-head">
+      <div>
+        <div class="eyebrow">Laboratorio 1 · Modelado</div>
+        <h2>El modelo relacional de la finca</h2>
+        <p>Siete tablas guardan todo lo que pasa en el campo: dónde está cada lote, qué insumos hay en bodega, qué se aplicó y qué vio el dron. Toquen una tabla para ver sus columnas, sus restricciones y los datos que tiene en este momento.</p>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="stack">
+        <div class="panel er-wrap"><svg class="er" id="erSvg" viewBox="0 0 900 500" role="img" aria-label="Diagrama entidad relación"></svg></div>
+        <div class="legend muted">
+          <span><span class="badge PK">PK</span> llave primaria</span>
+          <span><span class="badge FK">FK</span> llave foránea</span>
+          <span><span class="badge UQ">UQ</span> única</span>
+          <span><span class="badge CK">CK</span> CHECK / lista cerrada</span>
+          <span><span class="badge">NN</span> NOT NULL</span>
+        </div>
+        <div class="panel">
+          <div class="eyebrow">Actividad</div>
+          <h3 style="margin:4px 0 10px">¿Qué cardinalidad tiene cada relación?</h3>
+          <div id="relQuiz"></div>
+          <div class="row" style="margin-top:12px"><button class="btn primary" id="relCheck" type="button">Revisar respuestas</button><span id="relResult" class="muted"></span></div>
+        </div>
+      </div>
+      <div class="stack">
+        <div class="panel" id="tblDetail"></div>
+        <div class="concept"><h3>Llave primaria y llave foránea</h3><p class="muted">La llave primaria identifica cada fila. La llave foránea copia esa llave en otra tabla para relacionarlas: <code>lote.id_finca</code> apunta a <code>finca.id_finca</code>. El motor rechaza cualquier valor que no exista en la tabla padre.</p></div>
+        <div class="concept"><h3>Relación muchos a muchos</h3><p class="muted">Un lote recibe muchos productos y un producto se aplica en muchos lotes. Eso no cabe en dos tablas: se resuelve con la tabla intermedia <code>aplicacion</code>, que además guarda la fecha y la cantidad.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════ LAB 2 ═════════════ -->
+  <section id="lab2" class="lab" hidden>
+    <div class="lab-head">
+      <div>
+        <div class="eyebrow">Laboratorio 2 · Integridad de datos</div>
+        <h2>Bodega de insumos: registrar desde el anexo técnico</h2>
+        <p>Llegaron productos nuevos a la bodega. Escojan uno, lean su anexo técnico y regístrenlo en la tabla <code>producto</code>. El motor valida las restricciones; ustedes responden por la fidelidad al anexo.</p>
+      </div>
+      <div class="pill" id="regCount">0 de 6 registrados</div>
+    </div>
+    <div class="stack" style="margin-bottom:20px">
+      <div class="eyebrow">Productos recibidos</div>
+      <div class="catalog" id="catalog"></div>
+    </div>
+    <div class="grid2">
+      <div class="stack">
+        <article class="label" id="anexo"></article>
+        <details class="help panel flat">
+          <summary>Categorías toxicológicas en Colombia</summary>
+          <p class="muted" style="font-size:.88rem">La franja de color al pie de la etiqueta indica la categoría. Debe guardarse exacta porque define el equipo de protección y quién puede aplicar el producto.</p>
+          <div class="row" style="margin-top:10px">
+            <span class="pill tox-I" style="border:0">I · Extremadamente tóxico</span>
+            <span class="pill tox-II" style="border:0">II · Altamente tóxico</span>
+            <span class="pill tox-III" style="border:0">III · Medianamente tóxico</span>
+            <span class="pill tox-IV" style="border:0">IV · Ligeramente tóxico</span>
+          </div>
+        </details>
+      </div>
+      <div class="stack">
+        <form class="panel stack" id="regForm" novalidate>
+          <div><div class="eyebrow">Formulario de registro</div><h3>INSERT INTO producto</h3></div>
+          <div class="form">
+            <div class="field full"><label for="f_nombre">nombre_comercial <i>VARCHAR · NOT NULL · UNIQUE</i></label><input id="f_nombre" autocomplete="off"></div>
+            <div class="field"><label for="f_tipo">tipo <i>ENUM</i></label>
+              <select id="f_tipo"><option value="">— elegir —</option><option>fertilizante</option><option>enmienda</option><option>fungicida</option><option>insecticida</option><option>herbicida</option><option>bioinsumo</option></select></div>
+            <div class="field"><label for="f_tox">categoria_tox <i>I · II · III · IV</i></label>
+              <select id="f_tox"><option value="">— elegir —</option><option>I</option><option>II</option><option>III</option><option>IV</option></select></div>
+            <div class="field full"><label for="f_ia">ingrediente_activo <i>VARCHAR · NOT NULL</i></label><input id="f_ia" autocomplete="off"></div>
+            <div class="field"><label for="f_ica">registro_ica <i>UNIQUE</i></label><input id="f_ica" autocomplete="off" placeholder="ICA-DEMO-0000"></div>
+            <div class="field"><label for="f_unidad">unidad <i>kg · L · g · mL</i></label>
+              <select id="f_unidad"><option value="">— elegir —</option><option>kg</option><option>L</option><option>g</option><option>mL</option></select></div>
+            <div class="field"><label for="f_dosis">dosis_ha <i>CHECK &gt; 0</i></label><input id="f_dosis" type="number" step="0.01"></div>
+            <div class="field"><label for="f_car">carencia_dias <i>CHECK ≥ 0</i></label><input id="f_car" type="number" step="1"></div>
+            <div class="field"><label for="f_rei">reingreso_horas <i>CHECK ≥ 0</i></label><input id="f_rei" type="number" step="1"></div>
+          </div>
+          <div class="row"><button class="btn primary" type="submit">Ejecutar INSERT</button><button class="btn ghost" type="button" id="clearForm">Limpiar</button></div>
+          <pre class="sql" id="regSql">-- El INSERT aparecerá aquí al escribir</pre>
+          <div id="regMsg"></div>
+        </form>
+
+        <form class="panel stack" id="aplForm" novalidate>
+          <div><div class="eyebrow">Después de registrar</div><h3>Registrar una aplicación en un lote</h3>
+            <p class="muted" style="font-size:.88rem;margin-top:4px">La cantidad sugerida es dosis del anexo × área del lote. Al guardar se calculan el reingreso y la carencia con los datos de la tabla <code>producto</code>.</p></div>
+          <div class="form">
+            <div class="field"><label for="a_lote">id_lote <i>FK</i></label><select id="a_lote"></select></div>
+            <div class="field"><label for="a_prod">id_producto <i>FK</i></label><select id="a_prod"></select></div>
+            <div class="field"><label for="a_fecha">fecha</label><input id="a_fecha" type="date"></div>
+            <div class="field"><label for="a_cant">cantidad <i id="a_unit"></i></label><input id="a_cant" type="number" step="0.01"></div>
+          </div>
+          <div class="row"><button class="btn primary" type="submit">Guardar aplicación</button></div>
+          <div id="aplMsg"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════ LAB 3 ═════════════ -->
+  <section id="lab3" class="lab" hidden>
+    <div class="lab-head">
+      <div>
+        <div class="eyebrow">Laboratorio 3 · Visión artificial</div>
+        <h2>El dron sobrevuela el lote y YOLO detecta</h2>
+        <p>Escojan un lote y lancen un vuelo. El modelo propone cajas candidatas; ustedes ajustan el umbral de confianza y el IoU del NMS, comparan contra la verdad de campo y guardan las detecciones en la base de datos para obtener una recomendación.</p>
+      </div>
+      <div class="row">
+        <div class="field" style="min-width:200px"><label for="y_lote">Lote a sobrevolar</label><select id="y_lote"></select></div>
+        <button class="btn primary" id="fly" type="button" style="align-self:flex-end">Volar y capturar</button>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="stack">
+        <div class="cv-wrap"><canvas id="cv" width="960" height="600" aria-label="Imagen aérea del lote con detecciones"></canvas><div class="cv-hud" id="hud">—</div></div>
+        <div class="legend" id="legend"></div>
+        <div class="stages" id="stages">
+          <button class="stage" type="button" data-stage="grid" aria-pressed="false"><small>1 · Cuadrícula</small><strong id="s_grid">13×13</strong></button>
+          <button class="stage" type="button" data-stage="all" aria-pressed="false"><small>2 · Candidatas</small><strong id="s_all">0</strong></button>
+          <button class="stage" type="button" data-stage="conf" aria-pressed="false"><small>3 · Tras umbral</small><strong id="s_conf">0</strong></button>
+          <button class="stage" type="button" data-stage="nms" aria-pressed="true"><small>4 · Tras NMS</small><strong id="s_nms">0</strong></button>
+        </div>
+        <div class="panel stack">
+          <div class="slider"><label for="confT">Umbral de confianza: cajas con confianza menor se descartan</label><input type="range" id="confT" min="0.05" max="0.95" step="0.05" value="0.45"><output id="confV">0.45</output></div>
+          <div class="slider"><label for="iouT">Umbral IoU del NMS: si dos cajas de la misma clase se solapan más que esto, se conserva solo la de mayor confianza</label><input type="range" id="iouT" min="0.1" max="0.9" step="0.05" value="0.45"><output id="iouV">0.45</output></div>
+          <label class="row" style="font-size:.85rem"><input type="checkbox" id="showGT" style="width:auto"> Mostrar verdad de campo (lo que realmente hay, en línea punteada blanca)</label>
+        </div>
+        <div>
+          <div class="eyebrow" style="margin-bottom:6px">Calidad frente a la verdad de campo (IoU ≥ 0.5, misma clase)</div>
+          <div class="metrics">
+            <div><small>VP</small><b id="m_tp">0</b></div>
+            <div><small>FP</small><b id="m_fp">0</b></div>
+            <div><small>FN</small><b id="m_fn">0</b></div>
+            <div><small>Precisión</small><b id="m_p">—</b></div>
+            <div><small>Recall</small><b id="m_r">—</b></div>
+          </div>
+        </div>
+      </div>
+      <div class="stack">
+        <div class="panel stack" id="stageExplain"></div>
+        <div class="panel stack">
+          <div class="row" style="justify-content:space-between"><h3>Guardar en MySQL</h3><button class="btn primary" id="saveDet" type="button" disabled>Guardar detecciones</button></div>
+          <pre class="sql" id="detSql">-- Lancen un vuelo para generar el INSERT</pre>
+          <div id="detMsg"></div>
+        </div>
+        <div class="panel stack">
+          <h3>Recomendación agronómica</h3>
+          <p class="muted" style="font-size:.86rem">Se calcula con un JOIN entre <code>deteccion</code>, <code>imagen</code>, <code>lote</code>, <code>clase_objetivo</code> y <code>producto</code>. Si el producto sugerido no está en la bodega, aparece el aviso para registrarlo en el Laboratorio 2.</p>
+          <div class="reco" id="reco"><p class="muted">Guarden un vuelo para ver la recomendación.</p></div>
+        </div>
+        <div class="panel stack">
+          <div class="eyebrow">Preguntas sobre YOLO</div>
+          <div id="yoloQuiz" class="stack"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════ LAB 4 ═════════════ -->
+  <section id="lab4" class="lab" hidden>
+    <div class="lab-head">
+      <div>
+        <div class="eyebrow">Laboratorio 4 · Consultas</div>
+        <h2>Consola SQL sobre los datos de la finca</h2>
+        <p>Todo lo que registraron en la bodega y lo que guardó el dron está aquí. Resuelvan los retos escribiendo la consulta; el sistema compara su resultado con el esperado, sin importar el orden de las filas ni los nombres de las columnas.</p>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="stack console">
+        <div class="field"><label for="sqlIn">Consulta <i>Ctrl + Enter para ejecutar</i></label><textarea id="sqlIn" spellcheck="false">SELECT codigo, cultivo, area_ha
+FROM lote
+ORDER BY area_ha DESC;</textarea></div>
+        <div class="row"><button class="btn primary" id="runSql" type="button">Ejecutar</button><span class="muted" id="sqlMeta" style="font-size:.82rem"></span></div>
+        <div class="chips" id="examples"></div>
+        <div id="sqlOut"></div>
+        <details class="help panel flat">
+          <summary>Motor del simulador y diferencias con MySQL</summary>
+          <p class="muted" style="font-size:.88rem">El simulador usa SQLite compilado para el navegador. Las consultas de este curso son iguales en MySQL, con estas diferencias: en MySQL la llave autoincremental se escribe <code>INT AUTO_INCREMENT PRIMARY KEY</code> (aquí <code>INTEGER PRIMARY KEY</code>); MySQL tiene <code>ENUM</code> y <code>DECIMAL</code> (aquí se usan <code>CHECK</code> y <code>REAL</code>); las fechas se suman con <code>DATE_ADD(fecha, INTERVAL 30 DAY)</code> en MySQL y con <code>date(fecha, '+30 days')</code> aquí. Para ver las tablas usen <code>SELECT name FROM sqlite_master WHERE type='table'</code> (en MySQL: <code>SHOW TABLES</code>).</p>
+        </details>
+      </div>
+      <div class="panel">
+        <div class="eyebrow">Retos</div>
+        <h3 style="margin:4px 0 6px">Preguntas del agrónomo</h3>
+        <p class="muted" style="font-size:.86rem;margin-bottom:6px">Elijan un reto, escriban la consulta en la consola y presionen <b>Verificar</b>.</p>
+        <div id="retos"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════ LAB 5 ═════════════ -->
+  <section id="lab5" class="lab" hidden>
+    <div class="lab-head">
+      <div>
+        <div class="eyebrow">Laboratorio 5 · Evaluación</div>
+        <h2>Evaluación final</h2>
+        <p>Doce preguntas que reúnen los cuatro laboratorios: diseño de tablas, integridad, consultas, normalización, anexos técnicos y YOLO. Cada respuesta muestra su explicación.</p>
+      </div>
+      <div class="panel" style="text-align:center;min-width:170px"><div class="score" id="score">0/12</div><div class="muted" id="scoreTxt" style="font-size:.82rem;margin-top:4px">Sin responder</div></div>
+    </div>
+    <div class="panel stack" id="finalQuiz" style="max-width:860px"></div>
+    <div class="row" style="margin-top:14px"><button class="btn" id="resetQuiz" type="button">Reiniciar evaluación</button></div>
+  </section>
+
+  <details class="log" id="logBox">
+    <summary>Bitácora SQL · todas las sentencias ejecutadas por el simulador (<span id="logN">0</span>)</summary>
+    <div class="log-list" id="logList"></div>
+  </details>
+</main>
+<footer><div class="wrap">Valores de dosis, carencia, reingreso y registros ICA son didácticos. En campo siempre se consulta la etiqueta y la ficha técnica aprobada. El modelo YOLO de este simulador es una simulación con fines de enseñanza.</div></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-asm.js"></script>
+<script>
+"use strict";
+/* ───────────────────────── Esquema y datos iniciales ───────────────────────── */
+const SCHEMA = /*SCHEMA_START*/`
+PRAGMA foreign_keys = ON;
+CREATE TABLE finca (
+  id_finca     INTEGER PRIMARY KEY,
+  nombre       TEXT NOT NULL,
+  municipio    TEXT NOT NULL,
+  departamento TEXT NOT NULL
+);
+CREATE TABLE lote (
+  id_lote   INTEGER PRIMARY KEY,
+  codigo    TEXT NOT NULL UNIQUE,
+  id_finca  INTEGER NOT NULL REFERENCES finca(id_finca),
+  cultivo   TEXT NOT NULL CHECK (cultivo IN ('maíz','café','papa','tomate')),
+  area_ha   REAL NOT NULL CHECK (area_ha > 0)
+);
+CREATE TABLE producto (
+  id_producto        INTEGER PRIMARY KEY,
+  nombre_comercial   TEXT NOT NULL UNIQUE,
+  tipo               TEXT NOT NULL CHECK (tipo IN ('fertilizante','enmienda','fungicida','insecticida','herbicida','bioinsumo')),
+  ingrediente_activo TEXT NOT NULL,
+  categoria_tox      TEXT NOT NULL CHECK (categoria_tox IN ('I','II','III','IV')),
+  registro_ica       TEXT NOT NULL UNIQUE,
+  dosis_ha           REAL NOT NULL CHECK (dosis_ha > 0),
+  unidad             TEXT NOT NULL CHECK (unidad IN ('kg','L','g','mL')),
+  carencia_dias      INTEGER NOT NULL CHECK (carencia_dias >= 0),
+  reingreso_horas    INTEGER NOT NULL CHECK (reingreso_horas >= 0)
+);
+CREATE TABLE aplicacion (
+  id_aplicacion INTEGER PRIMARY KEY,
+  id_lote       INTEGER NOT NULL REFERENCES lote(id_lote),
+  id_producto   INTEGER NOT NULL REFERENCES producto(id_producto),
+  fecha         TEXT NOT NULL,
+  cantidad      REAL NOT NULL CHECK (cantidad > 0)
+);
+CREATE TABLE clase_objetivo (
+  clase             TEXT PRIMARY KEY,
+  descripcion       TEXT NOT NULL,
+  umbral_dano       INTEGER NOT NULL,
+  producto_sugerido TEXT NOT NULL,
+  id_producto       INTEGER REFERENCES producto(id_producto)
+);
+CREATE TABLE imagen (
+  id_imagen  INTEGER PRIMARY KEY,
+  id_lote    INTEGER NOT NULL REFERENCES lote(id_lote),
+  fecha_hora TEXT NOT NULL,
+  modelo     TEXT NOT NULL
+);
+CREATE TABLE deteccion (
+  id_deteccion INTEGER PRIMARY KEY,
+  id_imagen    INTEGER NOT NULL REFERENCES imagen(id_imagen) ON DELETE CASCADE,
+  clase        TEXT NOT NULL REFERENCES clase_objetivo(clase),
+  confianza    REAL NOT NULL CHECK (confianza BETWEEN 0 AND 1),
+  x REAL NOT NULL, y REAL NOT NULL, w REAL NOT NULL, h REAL NOT NULL
+);
+INSERT INTO finca VALUES
+  (1,'La Esperanza','Fusagasugá','Cundinamarca'),
+  (2,'El Porvenir','Chinchiná','Caldas'),
+  (3,'Villa Rosa','Ventaquemada','Boyacá');
+INSERT INTO lote VALUES
+  (1,'ESP-L01',1,'maíz',3.5),
+  (2,'ESP-L02',1,'tomate',1.2),
+  (3,'POR-L01',2,'café',6.8),
+  (4,'POR-L02',2,'maíz',2.4),
+  (5,'VRO-L01',3,'papa',4.1);
+INSERT INTO producto VALUES
+  (1,'NitroCampo 46','fertilizante','Urea 46 % N','IV','ICA-DEMO-1001',150,'kg',0,0),
+  (2,'CalViva','enmienda','Cal dolomita (CaCO3·MgCO3)','IV','ICA-DEMO-1003',500,'kg',0,0);
+INSERT INTO aplicacion VALUES
+  (1,1,1,'2026-04-02',520),
+  (2,4,1,'2026-05-25',360),
+  (3,5,2,'2026-05-20',2000);
+INSERT INTO clase_objetivo VALUES
+  ('gusano_cogollero','Larva de Spodoptera frugiperda en el cogollo del maíz',3,'BioLarva WP',NULL),
+  ('roya','Pústulas anaranjadas en el envés de la hoja de café',3,'RoyaStop 250 EC',NULL),
+  ('tizon','Lesiones necróticas en hojas de papa y tomate',2,'TizónFin 80 WP',NULL),
+  ('maleza','Planta arvense que compite por agua, luz y nutrientes',5,'HerbaCero 480 SL',NULL);
+`/*SCHEMA_END*/;
+
+/* Anexos técnicos (valores didácticos) */
+const ANEXOS = [
+  {nombre:'NitroCampo 46',tipo:'fertilizante',ia:'Urea 46 % N',tox:'IV',ica:'ICA-DEMO-1001',dosis:150,unidad:'kg',car:0,rei:0,pres:'Bulto x 50 kg · gránulo',uso:'Maíz, papa, tomate, café',modo:'Aporta nitrógeno para el crecimiento vegetativo. Aplicar incorporado o en banda junto a la planta.',epp:'Guantes'},
+  {nombre:'CalViva',tipo:'enmienda',ia:'Cal dolomita (CaCO3·MgCO3)',tox:'IV',ica:'ICA-DEMO-1003',dosis:500,unidad:'kg',car:0,rei:0,pres:'Bulto x 50 kg · polvo',uso:'Suelos ácidos de todos los cultivos',modo:'Corrige la acidez del suelo y aporta calcio y magnesio. Aplicar 30 días antes de la siembra.',epp:'Guantes, tapabocas'},
+  {nombre:'FosfoArranque',tipo:'fertilizante',ia:'Fosfato diamónico 18-46-0',tox:'IV',ica:'ICA-DEMO-1002',dosis:100,unidad:'kg',car:0,rei:0,pres:'Bulto x 50 kg · gránulo',uso:'Maíz, papa, tomate',modo:'Aporta fósforo para el desarrollo de raíces. Se aplica al momento de la siembra.',epp:'Guantes'},
+  {nombre:'BioLarva WP',tipo:'bioinsumo',ia:'Bacillus thuringiensis var. kurstaki',tox:'IV',ica:'ICA-DEMO-2001',dosis:0.5,unidad:'kg',car:0,rei:4,pres:'Bolsa x 500 g · polvo mojable',uso:'Maíz (gusano cogollero), tomate',modo:'Bacteria que produce una proteína tóxica solo para larvas de lepidópteros. Aplicar dirigido al cogollo al atardecer.',epp:'Guantes, gafas, tapabocas'},
+  {nombre:'CogolloFin 50 SC',tipo:'insecticida',ia:'Diamida antranílica 50 g/L',tox:'II',ica:'ICA-DEMO-2002',dosis:150,unidad:'mL',car:21,rei:48,pres:'Frasco x 250 mL · suspensión concentrada',uso:'Maíz',modo:'Insecticida de síntesis que paraliza la musculatura de la larva. Solo cuando el control biológico no es suficiente.',epp:'Overol, guantes de nitrilo, careta, botas'},
+  {nombre:'RoyaStop 250 EC',tipo:'fungicida',ia:'Triazol 250 g/L',tox:'III',ica:'ICA-DEMO-3001',dosis:0.4,unidad:'L',car:30,rei:24,pres:'Frasco x 1 L · concentrado emulsionable',uso:'Café (roya)',modo:'Fungicida sistémico que detiene la formación de la pared celular del hongo. Aplicar al envés de la hoja.',epp:'Overol, guantes, gafas, tapabocas'},
+  {nombre:'TizónFin 80 WP',tipo:'fungicida',ia:'Ditiocarbamato 800 g/kg',tox:'III',ica:'ICA-DEMO-3002',dosis:2.5,unidad:'kg',car:14,rei:24,pres:'Bolsa x 1 kg · polvo mojable',uso:'Papa y tomate (tizón tardío)',modo:'Fungicida de contacto, preventivo. Forma una película protectora sobre la hoja.',epp:'Overol, guantes, gafas, respirador'},
+  {nombre:'HerbaCero 480 SL',tipo:'herbicida',ia:'Herbicida sistémico 480 g/L',tox:'III',ica:'ICA-DEMO-4001',dosis:2,unidad:'L',car:45,rei:12,pres:'Garrafa x 4 L · concentrado soluble',uso:'Calles del cultivo, sin tocar la planta',modo:'Se absorbe por las hojas de la maleza. Aplicar con pantalla protectora para no mojar el cultivo.',epp:'Overol, guantes, botas, careta'}
+];
+const PRE_REGISTERED = ['NitroCampo 46','CalViva'];
+const TOX_TXT = {I:'Extremadamente tóxico',II:'Altamente tóxico',III:'Medianamente tóxico',IV:'Ligeramente tóxico'};
+const FIELD_WHY = {
+  tipo:'Define en qué bodega se guarda y qué productos no pueden mezclarse.',
+  tox:'Determina el equipo de protección y la franja de la etiqueta.',
+  ica:'Número único de registro de venta: identifica el producto ante la autoridad.',
+  dosis:'Cantidad por hectárea. Con el área del lote se calcula cuánto sacar de bodega.',
+  car:'Días mínimos entre la última aplicación y la cosecha.',
+  rei:'Horas que deben pasar antes de que alguien vuelva a entrar al lote.'
+};
+
+/* ───────────────────────── Utilidades ───────────────────────── */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const lit = v => v === null || v === undefined || v === '' ? 'NULL' : (typeof v === 'number' ? String(v) : `'${String(v).replace(/'/g,"''")}'`);
+const fmt = (n, d=2) => (Math.round(n * 10**d) / 10**d).toLocaleString('es-CO');
+function hl(sql){
+  const kw = /\b(SELECT|FROM|WHERE|INSERT|INTO|VALUES|UPDATE|SET|DELETE|JOIN|LEFT|INNER|ON|GROUP|BY|ORDER|HAVING|COUNT|SUM|AVG|ROUND|AS|AND|OR|IN|IS|NULL|NOT|LIMIT|DESC|ASC|CREATE|TABLE|PRIMARY|KEY|REFERENCES|DISTINCT|BETWEEN|CASE|WHEN|THEN|ELSE|END)\b/g;
+  return esc(sql).split(/('(?:[^']|'')*')/g).map((p,i) => i % 2 ? `<span class="s">${p}</span>` : p.replace(kw,'<span class="k">$1</span>')).join('');
+}
+function store(k, v){ try{ localStorage.setItem(k, v) }catch(e){} }
+function load(k){ try{ return localStorage.getItem(k) }catch(e){ return null } }
+function u8ToB64(u8){ let s=''; for(let i=0;i<u8.length;i+=0x8000) s += String.fromCharCode.apply(null, u8.subarray(i,i+0x8000)); return btoa(s) }
+function b64ToU8(b){ const s=atob(b), u=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return u }
+function rng(seed){ return function(){ seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296 } }
+function gauss(r, m, s){ const u = 1 - r(), v = r(); return m + s * Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v) }
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+
+/* ───────────────────────── Base de datos ───────────────────────── */
+let SQLlib = null, db = null;
+const DB_KEY = 'agrodatos-db-v1';
+const logItems = [];
+
+function explainError(msg){
+  let m;
+  if((m = msg.match(/UNIQUE constraint failed: (\w+)\.(\w+)/))) return `<b>Violación de UNIQUE</b> en <code>${m[1]}.${m[2]}</code>: ya existe un registro con ese valor. En MySQL verían <code>Error 1062: Duplicate entry</code>.`;
+  if(/CHECK constraint failed/.test(msg)) return `<b>Violación de CHECK</b>: un valor está fuera del dominio permitido (negativo, cero o fuera de la lista). En MySQL: <code>Error 3819: Check constraint is violated</code>.`;
+  if((m = msg.match(/NOT NULL constraint failed: (\w+)\.(\w+)/))) return `<b>Violación de NOT NULL</b>: <code>${m[1]}.${m[2]}</code> es obligatorio. En MySQL: <code>Error 1048: Column cannot be null</code>.`;
+  if(/FOREIGN KEY constraint failed/.test(msg)) return `<b>Violación de llave foránea</b>: el valor no existe en la tabla padre, o se intentó borrar un padre que tiene hijos. En MySQL: <code>Error 1452</code> o <code>1451</code>.`;
+  if(/syntax error/.test(msg)) return `<b>Error de sintaxis</b>: revisen comas, comillas y palabras clave cerca de lo que señala el mensaje. En MySQL: <code>Error 1064</code>.`;
+  if(/no such table/.test(msg)) return `<b>La tabla no existe</b>. Revisen el nombre en el Laboratorio 1. En MySQL: <code>Error 1146</code>.`;
+  if(/no such column/.test(msg)) return `<b>La columna no existe</b>. Revisen el nombre exacto en el Laboratorio 1. En MySQL: <code>Error 1054: Unknown column</code>.`;
+  return '';
+}
+function logSql(sql, ok=true){
+  logItems.unshift({t:new Date(), sql, ok});
+  if(logItems.length > 120) logItems.pop();
+  $('#logN').textContent = logItems.length;
+  $('#logList').innerHTML = logItems.map(l => `<div class="log-item ${l.ok?'':'e'}"><time>${l.t.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</time><pre class="sql">${hl(l.sql)}</pre></div>`).join('');
+}
+function q(sql){ const r = db.exec(sql); if(!r.length) return []; const {columns, values} = r[0]; return values.map(v => Object.fromEntries(columns.map((c,i)=>[c,v[i]]))) }
+function run(sql, {log=true} = {}){
+  try{ db.exec(sql); if(log) logSql(sql, true); persist(); return {ok:true} }
+  catch(e){ if(log) logSql(sql + '\n-- ERROR: ' + e.message, false); return {ok:false, error:e.message} }
+}
+function persist(){ try{ store(DB_KEY, u8ToB64(db.export())) }catch(e){} db.exec('PRAGMA foreign_keys = ON;') }
+function freshDb(){ db = new SQLlib.Database(); db.exec(SCHEMA); persist() }
+function scalar(sql){ const r = db.exec(sql); return r.length ? r[0].values[0][0] : null }
+
+function renderDbState(){
+  const t = ['finca','lote','producto','aplicacion','imagen','deteccion'];
+  $('#dbstate').innerHTML = `<span class="pill live">● SQL en línea</span>` + t.map(n => `<span class="pill">${n} ${scalar(`SELECT COUNT(*) FROM ${n}`)}</span>`).join('');
+}
+function dataTable(columns, values, max=200){
+  if(!columns.length) return '';
+  const rows = values.slice(0,max).map(r => `<tr>${r.map(v => v === null ? '<td class="null">NULL</td>' : `<td>${esc(typeof v === 'number' && !Number.isInteger(v) ? Math.round(v*1000)/1000 : v)}</td>`).join('')}</tr>`).join('');
+  return `<div class="tablewrap"><table class="data"><thead><tr>${columns.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows || `<tr><td colspan="${columns.length}" class="null">Sin filas</td></tr>`}</tbody></table></div>`;
+}
+
+/* ───────────────────────── Progreso ───────────────────────── */
+const progress = {lab1:false, lab2:false, lab3:false, lab4:false, lab5:false};
+function markDone(lab){ progress[lab] = true; const b = $(`nav.tabs button[data-lab="${lab}"]`); if(b) b.classList.add('done'); store('agrodatos-progress', JSON.stringify(progress)) }
+
+/* ───────────────────────── Navegación ───────────────────────── */
+function showLab(id){
+  $$('section.lab').forEach(s => s.hidden = s.id !== id);
+  $$('nav.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.lab === id));
+  if(id === 'lab1') renderTableDetail(selTable);
+  if(id === 'lab2'){ renderCatalog(); fillAplForm() }
+  if(id === 'lab3'){ fillLoteSelect(); requestAnimationFrame(drawCanvas) }
+  if(id === 'lab4') renderRetos();
+  try{ history.replaceState(null,'','#'+id) }catch(e){}
+}
+
+/* ═════════════════════ LAB 1 · Diagrama ER ═════════════════════ */
+const META = {
+  finca:{x:20,y:20,desc:'Predio agrícola. Una finca tiene muchos lotes.',cols:[['id_finca','INT','PK'],['nombre','VARCHAR(80)','NN'],['municipio','VARCHAR(60)','NN'],['departamento','VARCHAR(60)','NN']]},
+  lote:{x:250,y:20,desc:'Porción de la finca con un solo cultivo y un área conocida.',cols:[['id_lote','INT','PK'],['codigo','VARCHAR(10)','UQ'],['id_finca','INT','FK'],['cultivo','ENUM','CK'],['area_ha','DECIMAL(6,2)','CK']]},
+  aplicacion:{x:480,y:20,desc:'Tabla intermedia: qué producto se aplicó en qué lote, cuándo y cuánto.',cols:[['id_aplicacion','INT','PK'],['id_lote','INT','FK'],['id_producto','INT','FK'],['fecha','DATE','NN'],['cantidad','DECIMAL(8,2)','CK']]},
+  producto:{x:710,y:20,desc:'Insumos de la bodega, registrados desde su anexo técnico.',cols:[['id_producto','INT','PK'],['nombre_comercial','VARCHAR(80)','UQ'],['tipo','ENUM','CK'],['ingrediente_activo','VARCHAR(120)','NN'],['categoria_tox','ENUM','CK'],['registro_ica','VARCHAR(20)','UQ'],['dosis_ha','DECIMAL(8,2)','CK'],['unidad','ENUM','CK'],['carencia_dias','INT','CK'],['reingreso_horas','INT','CK']]},
+  imagen:{x:250,y:290,desc:'Cada foto que toma el dron sobre un lote y el modelo que la analizó.',cols:[['id_imagen','INT','PK'],['id_lote','INT','FK'],['fecha_hora','DATETIME','NN'],['modelo','VARCHAR(40)','NN']]},
+  deteccion:{x:480,y:290,desc:'Cada caja que YOLO encontró en una imagen: clase, confianza y posición.',cols:[['id_deteccion','INT','PK'],['id_imagen','INT','FK'],['clase','VARCHAR(40)','FK'],['confianza','DECIMAL(4,3)','CK'],['x','DECIMAL(5,4)','NN'],['y','DECIMAL(5,4)','NN'],['w','DECIMAL(5,4)','NN'],['h','DECIMAL(5,4)','NN']]},
+  clase_objetivo:{x:710,y:290,desc:'Catálogo de lo que el modelo sabe reconocer, con su umbral de daño y el producto sugerido.',cols:[['clase','VARCHAR(40)','PK'],['descripcion','VARCHAR(150)','NN'],['umbral_dano','INT','NN'],['producto_sugerido','VARCHAR(80)','NN'],['id_producto','INT','FK']]}
+};
+const RELS = [['lote','finca'],['aplicacion','lote'],['aplicacion','producto'],['imagen','lote'],['deteccion','imagen'],['deteccion','clase_objetivo'],['clase_objetivo','producto']];
+const TW = 172, HH = 26, RH = 18;
+const boxH = t => HH + META[t].cols.length * RH + 6;
+let selTable = 'lote';
+
+function drawER(){
+  const svg = $('#erSvg');
+  let s = '';
+  for(const [child, parent] of RELS){
+    const a = META[child], b = META[parent];
+    if(a.y === b.y){ // horizontal
+      const left = a.x < b.x ? child : parent, right = left === child ? parent : child;
+      const L = META[left], R = META[right];
+      const y = Math.max(L.y, R.y) + HH + 24;
+      const x1 = L.x + TW, x2 = R.x;
+      s += `<line class="rel" x1="${x1}" y1="${y}" x2="${x2}" y2="${y}"/>`;
+      const nX = right === child ? x2 : x1, oneX = right === child ? x1 : x2, dir = right === child ? -1 : 1;
+      s += crow(nX, y, dir, 'h') + `<text class="card" x="${oneX + (dir === -1 ? 6 : -14)}" y="${y - 6}">1</text><text class="card" x="${nX + (dir === -1 ? -16 : 6)}" y="${y - 8}">N</text>`;
+    } else { // vertical
+      const top = a.y < b.y ? child : parent, bot = top === child ? parent : child;
+      const T = META[top], B = META[bot];
+      const x = T.x + TW/2 + (top === 'lote' ? -40 : 0);
+      const y1 = T.y + boxH(top), y2 = B.y;
+      s += `<line class="rel" x1="${x}" y1="${y1}" x2="${x}" y2="${y2}"/>`;
+      const nY = bot === child ? y2 : y1, oneY = bot === child ? y1 : y2, dir = bot === child ? -1 : 1;
+      s += crow(x, nY, dir, 'v') + `<text class="card" x="${x + 8}" y="${oneY + (dir === -1 ? 14 : -6)}">1</text><text class="card" x="${x + 10}" y="${nY + (dir === -1 ? -10 : 18)}">N</text>`;
+    }
+  }
+  for(const [name, m] of Object.entries(META)){
+    const h = boxH(name);
+    s += `<g class="tbl ${name === selTable ? 'sel' : ''}" data-t="${name}" tabindex="0" role="button" aria-label="Tabla ${name}">
+      <rect class="box" x="${m.x}" y="${m.y}" width="${TW}" height="${h}" rx="7"/>
+      <rect class="hd" x="${m.x + 1}" y="${m.y + 1}" width="${TW - 2}" height="${HH - 1}" rx="6"/>
+      <text class="tn" x="${m.x + 10}" y="${m.y + 18}">${name}</text>`;
+    m.cols.forEach(([c,,f], i) => {
+      const y = m.y + HH + 14 + i * RH;
+      const cls = f === 'PK' ? 'pk' : f === 'FK' ? 'fk' : '';
+      s += `<text class="${cls}" x="${m.x + 10}" y="${y}">${c}</text><text class="flag" x="${m.x + TW - 10}" y="${y}" text-anchor="end">${f}</text>`;
+    });
+    s += `</g>`;
+  }
+  svg.innerHTML = s;
+  $$('#erSvg .tbl').forEach(g => {
+    const pick = () => { selTable = g.dataset.t; drawER(); renderTableDetail(selTable) };
+    g.addEventListener('click', pick);
+    g.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); pick() } });
+  });
+}
+function crow(x, y, dir, o){ // pata de gallo en el extremo N
+  const d = 12 * dir;
+  return o === 'h'
+    ? `<path class="rel" d="M${x} ${y-7} L${x+d} ${y} L${x} ${y+7} M${x} ${y} L${x+d} ${y}"/>`
+    : `<path class="rel" d="M${x-7} ${y} L${x} ${y+d} L${x+7} ${y} M${x} ${y} L${x} ${y+d}"/>`;
+}
+const FLAG_TXT = {PK:'PRIMARY KEY', FK:'FOREIGN KEY', UQ:'UNIQUE', CK:'CHECK / ENUM', NN:'NOT NULL'};
+function renderTableDetail(t){
+  if(!db) return;
+  const m = META[t];
+  const n = scalar(`SELECT COUNT(*) FROM ${t}`);
+  const r = db.exec(`SELECT * FROM ${t} ORDER BY 1 DESC LIMIT 8`);
+  const fks = RELS.filter(([c]) => c === t).map(([,p]) => p);
+  const kids = RELS.filter(([,p]) => p === t).map(([c]) => c);
+  $('#tblDetail').innerHTML = `
+    <div class="eyebrow">Tabla seleccionada</div>
+    <h3 style="font-size:1.4rem;margin:2px 0 4px">${t}</h3>
+    <p class="muted" style="font-size:.9rem">${m.desc}</p>
+    <div class="row" style="margin:10px 0"><span class="pill">${n} fila(s)</span>${fks.length ? `<span class="pill">depende de: ${fks.join(', ')}</span>` : ''}${kids.length ? `<span class="pill">la referencian: ${kids.join(', ')}</span>` : ''}</div>
+    <div>${m.cols.map(([c,ty,f]) => `<div class="colrow"><code>${c}</code><span class="muted mono">${ty}</span><span class="badge ${f}" title="${FLAG_TXT[f]}">${f}</span></div>`).join('')}</div>
+    <div class="eyebrow" style="margin:14px 0 6px">Datos actuales · SELECT * FROM ${t} LIMIT 8</div>
+    ${r.length ? dataTable(r[0].columns, r[0].values) : '<p class="muted">La tabla está vacía. Se llenará al trabajar en los laboratorios 2 y 3.</p>'}`;
+}
+const REL_Q = [
+  {t:'finca → lote', a:'1:N', why:'Una finca tiene muchos lotes; un lote pertenece a una sola finca.'},
+  {t:'lote ↔ producto', a:'N:M', why:'Se resuelve con la tabla intermedia aplicacion.'},
+  {t:'imagen → deteccion', a:'1:N', why:'Una foto puede tener muchas cajas detectadas.'},
+  {t:'lote → imagen', a:'1:N', why:'El dron toma muchas fotos del mismo lote en el tiempo.'},
+  {t:'clase_objetivo → producto', a:'N:1', why:'Varias clases pueden sugerir el mismo producto; cada clase sugiere uno.'}
+];
+function renderRelQuiz(){
+  $('#relQuiz').innerHTML = REL_Q.map((r,i) => `<div class="rel-q"><div><code>${r.t}</code><div class="fb" id="relfb${i}"></div></div>
+    <select id="rel${i}" aria-label="Cardinalidad ${r.t}"><option value="">—</option><option>1:1</option><option>1:N</option><option>N:1</option><option>N:M</option></select><span class="mark" id="relm${i}"></span></div>`).join('');
+}
+function checkRelQuiz(){
+  let ok = 0;
+  REL_Q.forEach((r,i) => {
+    const v = $('#rel'+i).value, good = v === r.a;
+    if(good) ok++;
+    $('#relm'+i).textContent = v ? (good ? '✓' : '✗') : '';
+    $('#relm'+i).className = 'mark ' + (good ? 'y' : 'n');
+    $('#relfb'+i).textContent = v ? (good ? r.why : 'Revisen: piensen cuántas filas de cada lado pueden relacionarse.') : '';
+  });
+  $('#relResult').textContent = `${ok} de ${REL_Q.length} correctas`;
+  if(ok === REL_Q.length) markDone('lab1');
+}
+
+/* ═════════════════════ LAB 2 · Bodega ═════════════════════ */
+let selAnexo = 2;
+function registeredMap(){ const m = {}; q('SELECT * FROM producto').forEach(p => m[p.nombre_comercial] = p); return m }
+function anexoMatches(a, p){
+  const diffs = [];
+  const cmp = (lbl, x, y) => { if(String(x).trim().toLowerCase() !== String(y).trim().toLowerCase()) diffs.push([lbl, x, y]) };
+  cmp('tipo', p.tipo, a.tipo); cmp('ingrediente_activo', p.ingrediente_activo, a.ia); cmp('categoria_tox', p.categoria_tox, a.tox);
+  cmp('registro_ica', p.registro_ica, a.ica); cmp('unidad', p.unidad, a.unidad);
+  if(Math.abs(p.dosis_ha - a.dosis) > 1e-9) diffs.push(['dosis_ha', p.dosis_ha, a.dosis]);
+  if(p.carencia_dias !== a.car) diffs.push(['carencia_dias', p.carencia_dias, a.car]);
+  if(p.reingreso_horas !== a.rei) diffs.push(['reingreso_horas', p.reingreso_horas, a.rei]);
+  return diffs;
+}
+function renderCatalog(){
+  const reg = registeredMap();
+  let goodCount = 0;
+  const pending = ANEXOS.filter(a => !PRE_REGISTERED.includes(a.nombre));
+  $('#catalog').innerHTML = ANEXOS.map((a,i) => {
+    const p = reg[a.nombre];
+    let st = '<span class="st p">Pendiente</span>';
+    if(p){ const d = anexoMatches(a,p); st = d.length ? `<span class="st w">Con ${d.length} diferencia(s)</span>` : '<span class="st r">Registrado ✓</span>'; if(!d.length && !PRE_REGISTERED.includes(a.nombre)) goodCount++ }
+    return `<button type="button" class="prod ${i === selAnexo ? 'sel' : ''}" data-i="${i}"><b>${a.nombre}</b><small>${a.tipo}</small>${st}<div class="band tox-${a.tox}"></div></button>`;
+  }).join('');
+  $$('#catalog .prod').forEach(b => b.addEventListener('click', () => { selAnexo = +b.dataset.i; renderCatalog(); renderAnexo(); clearForm() }));
+  $('#regCount').textContent = `${goodCount} de ${pending.length} registrados sin errores`;
+  if(goodCount >= 4) markDone('lab2');
+}
+function renderAnexo(){
+  const a = ANEXOS[selAnexo];
+  const sp = (k, v, why) => `<div><dt>${k}</dt><dd>${v}</dd>${why ? `<span class="why">${why}</span>` : ''}</div>`;
+  $('#anexo').innerHTML = `<div class="label-body">
+      <div><div class="eyebrow">Anexo técnico · ficha del producto</div><h3>${a.nombre}</h3><p class="ia">${a.ia}</p></div>
+      <p style="font-size:.92rem">${a.modo}</p>
+      <dl class="spec" style="margin:0">
+        ${sp('Tipo de producto', a.tipo, FIELD_WHY.tipo)}
+        ${sp('Registro ICA', `<span class="mono">${a.ica}</span>`, FIELD_WHY.ica)}
+        ${sp('Dosis por hectárea', `${String(a.dosis).replace('.',',')} ${a.unidad}/ha`, FIELD_WHY.dosis)}
+        ${sp('Categoría toxicológica', `${a.tox} · ${TOX_TXT[a.tox]}`, FIELD_WHY.tox)}
+        ${sp('Periodo de carencia', `${a.car} días`, FIELD_WHY.car)}
+        ${sp('Periodo de reingreso', `${a.rei} horas`, FIELD_WHY.rei)}
+        ${sp('Presentación', a.pres)}
+        ${sp('Cultivos autorizados', a.uso)}
+      </dl>
+      <p style="font-size:.86rem"><b>Equipo de protección:</b> ${a.epp}</p>
+    </div>
+    <div class="toxband tox-${a.tox}"><span>Categoría ${a.tox}</span><span>${TOX_TXT[a.tox]}</span></div>`;
+}
+const FF = ['f_nombre','f_tipo','f_tox','f_ia','f_ica','f_unidad','f_dosis','f_car','f_rei'];
+function formValues(){
+  const v = id => $('#'+id).value.trim();
+  const num = id => v(id) === '' ? null : Number(v(id));
+  return {nombre_comercial:v('f_nombre'), tipo:v('f_tipo'), categoria_tox:v('f_tox'), ingrediente_activo:v('f_ia'), registro_ica:v('f_ica'), unidad:v('f_unidad'), dosis_ha:num('f_dosis'), carencia_dias:num('f_car'), reingreso_horas:num('f_rei')};
+}
+function insertSql(f){
+  const cols = ['nombre_comercial','tipo','ingrediente_activo','categoria_tox','registro_ica','dosis_ha','unidad','carencia_dias','reingreso_horas'];
+  return `INSERT INTO producto\n  (${cols.join(', ')})\nVALUES\n  (${cols.map(c => lit(f[c])).join(', ')});`;
+}
+function updateRegSql(){ $('#regSql').innerHTML = hl(insertSql(formValues())); FF.forEach(id => $('#'+id).parentElement.classList.remove('bad','good')) }
+function clearForm(){ FF.forEach(id => $('#'+id).value = ''); $('#regMsg').innerHTML = ''; updateRegSql() }
+function submitProduct(e){
+  e.preventDefault();
+  const f = formValues(), a = ANEXOS[selAnexo];
+  const sql = insertSql(f);
+  const r = run(sql);
+  if(!r.ok){
+    $('#regMsg').innerHTML = `<div class="msg err"><b>El motor rechazó el INSERT.</b><br>${explainError(r.error) || esc(r.error)}<br><span class="mono" style="font-size:.78rem">${esc(r.error)}</span></div>`;
+    return;
+  }
+  const id = scalar('SELECT MAX(id_producto) FROM producto');
+  // Vincular con el catálogo de clases si el producto es sugerido para alguna
+  const link = `UPDATE clase_objetivo SET id_producto = ${id} WHERE producto_sugerido = ${lit(f.nombre_comercial)};`;
+  if(scalar(`SELECT COUNT(*) FROM clase_objetivo WHERE producto_sugerido = ${lit(f.nombre_comercial)}`)) run(link);
+  const p = q(`SELECT * FROM producto WHERE id_producto = ${id}`)[0];
+  const sameAnexo = f.nombre_comercial.toLowerCase() === a.nombre.toLowerCase();
+  const diffs = sameAnexo ? anexoMatches(a, p) : [['nombre_comercial', f.nombre_comercial, a.nombre]];
+  const map = {tipo:'f_tipo',ingrediente_activo:'f_ia',categoria_tox:'f_tox',registro_ica:'f_ica',unidad:'f_unidad',dosis_ha:'f_dosis',carencia_dias:'f_car',reingreso_horas:'f_rei',nombre_comercial:'f_nombre'};
+  FF.forEach(fid => $('#'+fid).parentElement.classList.add('good'));
+  diffs.forEach(([k]) => { const el = $('#'+map[k]); if(el){ el.parentElement.classList.remove('good'); el.parentElement.classList.add('bad') } });
+  if(!diffs.length){
+    $('#regMsg').innerHTML = `<div class="msg ok"><b>Registrado con id_producto = ${id}.</b> Cumple las restricciones y coincide con el anexo.${scalar(`SELECT COUNT(*) FROM clase_objetivo WHERE id_producto = ${id}`) ? ' También quedó vinculado como producto sugerido en <code>clase_objetivo</code> (vean la bitácora).' : ''}</div>`;
+  } else {
+    $('#regMsg').innerHTML = `<div class="msg warn"><b>El motor aceptó el registro, pero no coincide con el anexo.</b> Las restricciones solo verifican que el dato sea válido, no que sea verdadero. Diferencias:
+      <ul>${diffs.map(([k,x,y]) => `<li><code>${k}</code>: registraron <b>${esc(x)}</b>, el anexo dice <b>${esc(y)}</b></li>`).join('')}</ul>
+      ${sameAnexo ? `<div class="row" style="margin-top:8px"><button type="button" class="btn" id="fixBtn">Corregir con UPDATE</button></div>` : ''}</div>`;
+    const fb = $('#fixBtn');
+    if(fb) fb.addEventListener('click', () => {
+      const up = `UPDATE producto SET tipo = ${lit(a.tipo)}, ingrediente_activo = ${lit(a.ia)}, categoria_tox = ${lit(a.tox)},\n  registro_ica = ${lit(a.ica)}, dosis_ha = ${a.dosis}, unidad = ${lit(a.unidad)},\n  carencia_dias = ${a.car}, reingreso_horas = ${a.rei}\nWHERE id_producto = ${id};`;
+      const ur = run(up);
+      $('#regMsg').innerHTML = ur.ok ? `<div class="msg ok"><b>Corregido.</b></div><pre class="sql">${hl(up)}</pre>` : `<div class="msg err">${explainError(ur.error) || esc(ur.error)}</div>`;
+      renderCatalog(); renderDbState();
+    });
+  }
+  renderCatalog(); fillAplForm(); renderDbState();
+}
+function fillAplForm(){
+  if(!db) return;
+  const lotes = q('SELECT l.id_lote, l.codigo, l.cultivo, l.area_ha FROM lote l ORDER BY l.codigo');
+  const prods = q('SELECT id_producto, nombre_comercial, unidad, dosis_ha FROM producto ORDER BY nombre_comercial');
+  const lv = $('#a_lote').value, pv = $('#a_prod').value;
+  $('#a_lote').innerHTML = lotes.map(l => `<option value="${l.id_lote}">${l.id_lote} · ${l.codigo} · ${l.cultivo} · ${l.area_ha} ha</option>`).join('');
+  $('#a_prod').innerHTML = prods.map(p => `<option value="${p.id_producto}">${p.id_producto} · ${esc(p.nombre_comercial)}</option>`).join('');
+  if(lv) $('#a_lote').value = lv; if(pv) $('#a_prod').value = pv;
+  if(!$('#a_fecha').value) $('#a_fecha').value = new Date().toISOString().slice(0,10);
+  suggestQty();
+}
+function suggestQty(){
+  const l = q(`SELECT area_ha FROM lote WHERE id_lote = ${+$('#a_lote').value || 0}`)[0];
+  const p = q(`SELECT dosis_ha, unidad FROM producto WHERE id_producto = ${+$('#a_prod').value || 0}`)[0];
+  if(l && p){ $('#a_cant').value = Math.round(l.area_ha * p.dosis_ha * 100) / 100; $('#a_unit').textContent = p.unidad }
+}
+function submitApl(e){
+  e.preventDefault();
+  const idl = +$('#a_lote').value, idp = +$('#a_prod').value, f = $('#a_fecha').value, c = $('#a_cant').value === '' ? null : Number($('#a_cant').value);
+  const sql = `INSERT INTO aplicacion (id_lote, id_producto, fecha, cantidad)\nVALUES (${idl}, ${idp}, ${lit(f)}, ${lit(c)});`;
+  const r = run(sql);
+  if(!r.ok){ $('#aplMsg').innerHTML = `<div class="msg err">${explainError(r.error) || esc(r.error)}</div><pre class="sql">${hl(sql)}</pre>`; return }
+  const info = q(`SELECT p.nombre_comercial, p.reingreso_horas, p.carencia_dias, p.unidad, p.dosis_ha, l.area_ha, l.codigo,
+      datetime(a.fecha, '+' || p.reingreso_horas || ' hours') AS reingreso,
+      date(a.fecha, '+' || p.carencia_dias || ' days') AS cosecha
+    FROM aplicacion a JOIN producto p ON p.id_producto = a.id_producto JOIN lote l ON l.id_lote = a.id_lote
+    WHERE a.id_aplicacion = (SELECT MAX(id_aplicacion) FROM aplicacion)`)[0];
+  const ratio = c / (info.area_ha * info.dosis_ha);
+  const dose = ratio > 1.1 ? `<div class="msg warn" style="margin-top:8px">La cantidad equivale a <b>${fmt(ratio*100,0)} %</b> de la dosis del anexo: posible sobredosis.</div>` : ratio < 0.9 ? `<div class="msg warn" style="margin-top:8px">La cantidad equivale a <b>${fmt(ratio*100,0)} %</b> de la dosis del anexo: posible subdosis.</div>` : '';
+  $('#aplMsg').innerHTML = `<div class="msg ok"><b>Aplicación guardada en ${info.codigo}.</b><ul>
+    <li>Reingreso al lote permitido desde: <b>${info.reingreso.slice(0,16)}</b> (${info.reingreso_horas} h)</li>
+    <li>Cosecha permitida desde: <b>${info.cosecha}</b> (${info.carencia_dias} días de carencia)</li></ul></div>${dose}<pre class="sql">${hl(sql)}</pre>`;
+  renderDbState();
+}
+
+/* ═════════════════════ LAB 3 · Dron + YOLO ═════════════════════ */
+const CLS = {
+  gusano_cogollero:{color:'#FFB020', label:'gusano_cogollero'},
+  roya:{color:'#FF5A36', label:'roya'},
+  tizon:{color:'#C77DFF', label:'tizon'},
+  maleza:{color:'#38D9F5', label:'maleza'}
+};
+const PESTS = {'maíz':['gusano_cogollero','maleza'], 'café':['roya','maleza'], 'papa':['tizon','maleza'], 'tomate':['tizon','maleza']};
+const W = 960, H = 600, GRID = 13;
+let scene = null, stage = 'nms', savedSceneId = null;
+const sceneCanvas = document.createElement('canvas'); sceneCanvas.width = W; sceneCanvas.height = H;
+
+function fillLoteSelect(){
+  if(!db) return;
+  const v = $('#y_lote').value;
+  $('#y_lote').innerHTML = q('SELECT id_lote, codigo, cultivo, area_ha FROM lote ORDER BY codigo').map(l => `<option value="${l.id_lote}">${l.codigo} · ${l.cultivo} · ${l.area_ha} ha</option>`).join('');
+  if(v) $('#y_lote').value = v;
+}
+function makeScene(){
+  const lote = q(`SELECT * FROM lote WHERE id_lote = ${+$('#y_lote').value}`)[0];
+  const seed = (Date.now() ^ (lote.id_lote * 7919)) >>> 0;
+  const r = rng(seed);
+  const g = sceneCanvas.getContext('2d');
+  // Suelo
+  const grd = g.createLinearGradient(0,0,W,H); grd.addColorStop(0,'#5a3f27'); grd.addColorStop(1,'#4a331f');
+  g.fillStyle = grd; g.fillRect(0,0,W,H);
+  for(let i=0;i<2500;i++){ g.fillStyle = `rgba(${r()<.5?'30,20,10':'120,90,60'},${r()*.18})`; g.fillRect(r()*W, r()*H, 2+r()*3, 2+r()*3) }
+  const cult = lote.cultivo;
+  const rows = cult === 'café' ? 4 : 5, perRow = cult === 'café' ? 7 : 9;
+  const plants = [];
+  for(let i=0;i<rows;i++){
+    const y = (i + .5) * H / rows;
+    g.fillStyle = 'rgba(40,28,16,.45)'; g.fillRect(0, y-26, W, 52);
+    for(let j=0;j<perRow;j++){
+      const x = (j + .5) * W / perRow + (r()-.5)*18, yy = y + (r()-.5)*10;
+      plants.push({x, y:yy, s: cult === 'café' ? 46 + r()*8 : 34 + r()*8});
+    }
+  }
+  plants.forEach(p => drawPlant(g, cult, p, r));
+  // Objetos reales (verdad de campo)
+  const gt = [];
+  const presion = .25 + r() * .75;
+  const [pest] = PESTS[cult];
+  const shuffled = plants.slice().sort(() => r() - .5);
+  const nPest = Math.round(presion * (cult === 'café' ? 7 : 9));
+  for(let k=0;k<nPest;k++){
+    const p = shuffled[k], ox = p.x + (r()-.5)*p.s*.6, oy = p.y + (r()-.5)*p.s*.6;
+    const sz = pest === 'gusano_cogollero' ? 30 : pest === 'roya' ? 40 : 38;
+    drawPest(g, pest, ox, oy, r);
+    gt.push({cls:pest, x:ox, y:oy, w:sz + r()*6, h:sz + r()*6});
+  }
+  const nWeed = 2 + Math.floor(r()*5);
+  for(let k=0;k<nWeed;k++){
+    const row = Math.floor(r()*(rows-1));
+    const x = 40 + r()*(W-80), y = (row + 1) * H / rows + (r()-.5)*20;
+    drawWeed(g, x, y, r);
+    gt.push({cls:'maleza', x, y, w:54 + r()*10, h:50 + r()*10});
+  }
+  // Candidatas que "propone" la red
+  const cand = [];
+  const others = PESTS[cult];
+  gt.forEach(o => {
+    if(r() < .1){ cand.push(box(o, r, .35, o.cls, .08 + r()*.22)); return }
+    const misc = r() < .08;
+    const main = clamp(gauss(r, .8, .1), .3, .99);
+    cand.push(box(o, r, .1, misc ? others.find(c => c !== o.cls) : o.cls, misc ? .35 + r()*.25 : main));
+    const dups = 1 + Math.floor(r()*2.2);
+    for(let d=0; d<dups; d++) cand.push(box(o, r, .28, o.cls, clamp(main - .05 - r()*.35, .05, .95)));
+  });
+  const nfp = 3 + Math.floor(r()*4);
+  for(let k=0;k<nfp;k++){
+    const p = plants[Math.floor(r()*plants.length)];
+    cand.push({cls:others[Math.floor(r()*others.length)], x:p.x + (r()-.5)*30, y:p.y + (r()-.5)*30, w:30 + r()*30, h:30 + r()*30, conf:.08 + r()*.42});
+  }
+  cand.forEach(c => c.conf = Math.round(c.conf*1000)/1000);
+  scene = {lote, gt, cand, t:new Date()};
+  savedSceneId = null;
+}
+function box(o, r, j, cls, conf){ return {cls, conf, x:o.x + (r()-.5)*o.w*j, y:o.y + (r()-.5)*o.h*j, w:o.w*(1 + (r()-.5)*j), h:o.h*(1 + (r()-.5)*j)} }
+function drawPlant(g, cult, p, r){
+  if(cult === 'maíz'){
+    g.strokeStyle = '#3f8f3a'; g.lineCap = 'round';
+    for(let k=0;k<7;k++){ const a = r()*Math.PI*2, L = p.s*(.6+r()*.5); g.lineWidth = 5; g.beginPath(); g.moveTo(p.x,p.y); g.quadraticCurveTo(p.x+Math.cos(a+.4)*L*.5, p.y+Math.sin(a+.4)*L*.5, p.x+Math.cos(a)*L, p.y+Math.sin(a)*L); g.stroke() }
+    g.fillStyle = '#2e6e2b'; g.beginPath(); g.arc(p.x,p.y,5,0,7); g.fill();
+  } else if(cult === 'café'){
+    for(let k=0;k<26;k++){ const a = r()*7, d = r()*p.s*.5; g.fillStyle = r()<.5 ? '#1f5a2a' : '#2a7034'; g.beginPath(); g.ellipse(p.x+Math.cos(a)*d, p.y+Math.sin(a)*d, 9, 5, a, 0, 7); g.fill() }
+  } else {
+    for(let k=0;k<16;k++){ const a = r()*7, d = r()*p.s*.45; g.fillStyle = r()<.5 ? '#4f9a3c' : '#3d8530'; g.beginPath(); g.arc(p.x+Math.cos(a)*d, p.y+Math.sin(a)*d, 6+r()*3, 0, 7); g.fill() }
+    if(cult === 'tomate') for(let k=0;k<3;k++){ g.fillStyle = '#d6402f'; g.beginPath(); g.arc(p.x+(r()-.5)*p.s*.6, p.y+(r()-.5)*p.s*.6, 4, 0, 7); g.fill() }
+  }
+}
+function drawPest(g, cls, x, y, r){
+  if(cls === 'gusano_cogollero'){
+    const a = r()*7;
+    for(let k=0;k<6;k++){ g.fillStyle = k === 5 ? '#3b2a1a' : '#d9c79a'; g.beginPath(); g.arc(x + Math.cos(a)*k*4, y + Math.sin(a + k*.3)*k*3, k === 5 ? 3.2 : 3.8, 0, 7); g.fill() }
+    g.fillStyle = 'rgba(200,180,120,.5)'; for(let k=0;k<5;k++){ g.beginPath(); g.arc(x+(r()-.5)*24, y+(r()-.5)*24, 2, 0, 7); g.fill() }
+  } else if(cls === 'roya'){
+    for(let k=0;k<14;k++){ g.fillStyle = r()<.6 ? '#f08a24' : '#e8b030'; g.beginPath(); g.arc(x+(r()-.5)*30, y+(r()-.5)*30, 2+r()*2.5, 0, 7); g.fill() }
+  } else {
+    for(let k=0;k<5;k++){ const xx = x+(r()-.5)*26, yy = y+(r()-.5)*26; g.fillStyle = 'rgba(220,200,80,.55)'; g.beginPath(); g.arc(xx,yy,7,0,7); g.fill(); g.fillStyle = '#3a2516'; g.beginPath(); g.arc(xx,yy,4.5+r()*1.5,0,7); g.fill() }
+  }
+}
+function drawWeed(g, x, y, r){
+  for(let k=0;k<6;k++){ const a = k/6*Math.PI*2 + r(); g.fillStyle = k%2 ? '#9cc63b' : '#b5d84f'; g.beginPath(); g.ellipse(x+Math.cos(a)*12, y+Math.sin(a)*12, 14, 7, a, 0, 7); g.fill() }
+  g.fillStyle = '#7aa82c'; g.beginPath(); g.arc(x,y,5,0,7); g.fill();
+}
+function iou(a, b){
+  const ax1=a.x-a.w/2, ay1=a.y-a.h/2, ax2=a.x+a.w/2, ay2=a.y+a.h/2, bx1=b.x-b.w/2, by1=b.y-b.h/2, bx2=b.x+b.w/2, by2=b.y+b.h/2;
+  const iw = Math.max(0, Math.min(ax2,bx2) - Math.max(ax1,bx1)), ih = Math.max(0, Math.min(ay2,by2) - Math.max(ay1,by1));
+  const inter = iw*ih; return inter / (a.w*a.h + b.w*b.h - inter);
+}
+function pipeline(){
+  if(!scene) return {all:[], conf:[], nms:[]};
+  const T = +$('#confT').value, IT = +$('#iouT').value;
+  const conf = scene.cand.filter(c => c.conf >= T);
+  const sorted = conf.slice().sort((a,b) => b.conf - a.conf), keep = [];
+  for(const c of sorted) if(!keep.some(k => k.cls === c.cls && iou(k,c) > IT)) keep.push(c);
+  return {all:scene.cand, conf, nms:keep};
+}
+function evaluate(dets){
+  const used = new Set(); let tp = 0;
+  dets.slice().sort((a,b) => b.conf - a.conf).forEach(d => {
+    let best = -1, bi = -1;
+    scene.gt.forEach((g,i) => { if(used.has(i) || g.cls !== d.cls) return; const v = iou(d,g); if(v > best){ best = v; bi = i } });
+    if(best >= .5){ used.add(bi); tp++ }
+  });
+  return {tp, fp:dets.length - tp, fn:scene.gt.length - tp};
+}
+function drawCanvas(){
+  const cv = $('#cv'), g = cv.getContext('2d');
+  if(!scene){
+    g.fillStyle = '#3b2a1c'; g.fillRect(0,0,W,H);
+    g.fillStyle = '#e8dccb'; g.font = '600 26px "Familjen Grotesk", sans-serif'; g.textAlign = 'center';
+    g.fillText('Escojan un lote y presionen «Volar y capturar»', W/2, H/2); g.textAlign = 'left';
+    $('#hud').textContent = 'Sin imagen'; return;
+  }
+  g.drawImage(sceneCanvas, 0, 0);
+  const P = pipeline();
+  if(stage === 'grid'){
+    g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1;
+    for(let i=1;i<GRID;i++){ g.beginPath(); g.moveTo(i*W/GRID,0); g.lineTo(i*W/GRID,H); g.stroke(); g.beginPath(); g.moveTo(0,i*H/GRID); g.lineTo(W,i*H/GRID); g.stroke() }
+    scene.gt.forEach(o => {
+      const cx = Math.floor(o.x / (W/GRID)), cy = Math.floor(o.y / (H/GRID));
+      g.fillStyle = CLS[o.cls].color + '55'; g.fillRect(cx*W/GRID, cy*H/GRID, W/GRID, H/GRID);
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(o.x, o.y, 4, 0, 7); g.fill();
+    });
+  } else {
+    const list = stage === 'all' ? P.all : stage === 'conf' ? P.conf : P.nms;
+    list.forEach(d => drawBox(g, d, stage === 'all' ? .55 : 1, stage !== 'all'));
+  }
+  if($('#showGT').checked){
+    g.setLineDash([6,5]); g.strokeStyle = '#ffffff'; g.lineWidth = 1.5;
+    scene.gt.forEach(o => g.strokeRect(o.x-o.w/2, o.y-o.h/2, o.w, o.h)); g.setLineDash([]);
+  }
+  $('#hud').textContent = `${scene.lote.codigo} · ${scene.lote.cultivo} · ${W}×${H} px · ${stageName()}`;
+}
+function drawBox(g, d, alpha, label){
+  g.globalAlpha = alpha; g.strokeStyle = CLS[d.cls].color; g.lineWidth = 2.5;
+  g.strokeRect(d.x-d.w/2, d.y-d.h/2, d.w, d.h);
+  if(label){
+    const t = `${d.cls} ${d.conf.toFixed(2)}`; g.font = '600 12px "JetBrains Mono", monospace';
+    const tw = g.measureText(t).width + 8, lx = clamp(d.x-d.w/2, 0, W - tw), ly = Math.max(16, d.y-d.h/2);
+    g.fillStyle = CLS[d.cls].color; g.fillRect(lx, ly-16, tw, 16); g.fillStyle = '#111'; g.fillText(t, lx+4, ly-4);
+  }
+  g.globalAlpha = 1;
+}
+const stageName = () => ({grid:'cuadrícula S×S', all:'todas las candidatas', conf:'tras umbral de confianza', nms:'salida final tras NMS'})[stage];
+const STAGE_TXT = {
+  grid:`<h3>1 · La imagen se divide en una cuadrícula</h3><p class="muted">YOLO mira la imagen completa <b>una sola vez</b>. La divide en una cuadrícula de S×S celdas; la celda donde cae el <b>centro</b> de un objeto es la responsable de predecirlo. Cada celda predice cajas (x, y, ancho, alto), una confianza y la probabilidad de cada clase. Las celdas coloreadas contienen el centro de un objeto real.</p>`,
+  all:`<h3>2 · Cajas candidatas</h3><p class="muted">La red propone muchas cajas: varias sobre el mismo objeto (duplicados), algunas con la clase equivocada y otras sobre suelo u hojas sanas (falsos positivos). Ninguna se guarda todavía. Así sale la información de la red antes de filtrarla.</p>`,
+  conf:`<h3>3 · Umbral de confianza</h3><p class="muted">Se descartan las cajas con confianza menor al umbral. Un umbral alto deja menos falsos positivos pero puede perder plagas reales (falsos negativos). Un umbral bajo detecta casi todo pero llena la base de datos de ruido.</p>`,
+  nms:`<h3>4 · Supresión de no máximos (NMS)</h3><p class="muted">Entre las cajas de la misma clase que se solapan más que el umbral IoU, se conserva solo la de mayor confianza. <b>IoU</b> = área de intersección ÷ área de unión de dos cajas. Esta es la salida final del modelo y lo que se guarda en la tabla <code>deteccion</code>.</p>`
+};
+function updateYolo(){
+  const P = pipeline();
+  $('#s_all').textContent = P.all.length; $('#s_conf').textContent = P.conf.length; $('#s_nms').textContent = P.nms.length;
+  $('#confV').textContent = (+$('#confT').value).toFixed(2); $('#iouV').textContent = (+$('#iouT').value).toFixed(2);
+  $$('#stages .stage').forEach(b => b.setAttribute('aria-pressed', b.dataset.stage === stage));
+  $('#stageExplain').innerHTML = STAGE_TXT[stage];
+  if(scene){
+    const m = evaluate(P.nms);
+    $('#m_tp').textContent = m.tp; $('#m_fp').textContent = m.fp; $('#m_fn').textContent = m.fn;
+    $('#m_p').textContent = P.nms.length ? fmt(m.tp / P.nms.length) : '—';
+    $('#m_r').textContent = scene.gt.length ? fmt(m.tp / scene.gt.length) : '—';
+    $('#detSql').innerHTML = hl(detInsertSql(P.nms));
+    $('#saveDet').disabled = savedSceneId !== null || !P.nms.length;
+    $('#saveDet').textContent = savedSceneId !== null ? `Guardado · imagen ${savedSceneId}` : `Guardar ${P.nms.length} detecciones`;
+  }
+  $('#legend').innerHTML = Object.entries(CLS).map(([k,v]) => `<span><i style="border-color:${v.color};background:${v.color}33"></i>${k}</span>`).join('');
+  drawCanvas();
+}
+function detInsertSql(dets, idImg = '@id_imagen'){
+  const ts = scene.t.toISOString().slice(0,19).replace('T',' ');
+  const lines = dets.slice(0, 40).map(d => `  (${idImg}, ${lit(d.cls)}, ${d.conf.toFixed(3)}, ${(d.x/W).toFixed(4)}, ${(d.y/H).toFixed(4)}, ${(d.w/W).toFixed(4)}, ${(d.h/H).toFixed(4)})`);
+  return `INSERT INTO imagen (id_lote, fecha_hora, modelo)\nVALUES (${scene.lote.id_lote}, '${ts}', 'yolo-agro-sim');\n\nINSERT INTO deteccion (id_imagen, clase, confianza, x, y, w, h) VALUES\n${lines.join(',\n')};`;
+}
+function saveDetections(){
+  const P = pipeline();
+  if(!scene || !P.nms.length) return;
+  const ts = scene.t.toISOString().slice(0,19).replace('T',' ');
+  const s1 = `INSERT INTO imagen (id_lote, fecha_hora, modelo) VALUES (${scene.lote.id_lote}, '${ts}', 'yolo-agro-sim');`;
+  const r1 = run(s1);
+  if(!r1.ok){ $('#detMsg').innerHTML = `<div class="msg err">${explainError(r1.error) || esc(r1.error)}</div>`; return }
+  const id = scalar('SELECT MAX(id_imagen) FROM imagen');
+  const s2 = detInsertSql(P.nms, id).split('\n\n')[1];
+  const r2 = run(s2);
+  if(!r2.ok){ $('#detMsg').innerHTML = `<div class="msg err">${explainError(r2.error) || esc(r2.error)}</div>`; return }
+  savedSceneId = id;
+  $('#detMsg').innerHTML = `<div class="msg ok"><b>Imagen ${id} guardada</b> con ${P.nms.length} detecciones. Las coordenadas se guardan normalizadas (0 a 1).</div>`;
+  renderReco(id); updateYolo(); renderDbState(); markDone('lab3');
+}
+const RECO_SQL = id => `SELECT d.clase, COUNT(*) AS detecciones, c.umbral_dano,
+       c.producto_sugerido, p.nombre_comercial, p.dosis_ha, p.unidad,
+       l.area_ha, ROUND(p.dosis_ha * l.area_ha, 2) AS cantidad_lote,
+       p.carencia_dias, p.reingreso_horas
+FROM deteccion d
+JOIN imagen i          ON i.id_imagen = d.id_imagen
+JOIN lote l            ON l.id_lote = i.id_lote
+JOIN clase_objetivo c  ON c.clase = d.clase
+LEFT JOIN producto p   ON p.id_producto = c.id_producto
+WHERE d.id_imagen = ${id}
+GROUP BY d.clase, c.umbral_dano, c.producto_sugerido, p.nombre_comercial,
+         p.dosis_ha, p.unidad, l.area_ha, p.carencia_dias, p.reingreso_horas;`;
+function renderReco(id){
+  const sql = RECO_SQL(id); logSql(sql);
+  const rows = q(sql);
+  $('#reco').innerHTML = rows.map(r => {
+    const over = r.detecciones > r.umbral_dano;
+    let body;
+    if(!over) body = `<p class="muted">Por debajo del umbral de daño (${r.umbral_dano}). Seguir monitoreando; no se justifica aplicar.</p>`;
+    else if(!r.nombre_comercial) body = `<p>Supera el umbral (${r.umbral_dano}). Producto sugerido: <b>${esc(r.producto_sugerido)}</b>, pero <b>no está registrado</b> en la bodega. Regístrenlo en el Laboratorio 2 y vuelvan a guardar un vuelo: el <code>LEFT JOIN</code> devolverá sus datos.</p>`;
+    else body = `<p>Supera el umbral (${r.umbral_dano}). Aplicar <b>${esc(r.nombre_comercial)}</b>: ${fmt(r.dosis_ha)} ${r.unidad}/ha × ${fmt(r.area_ha)} ha = <b>${fmt(r.cantidad_lote)} ${r.unidad}</b> para el lote. Reingreso ${r.reingreso_horas} h · carencia ${r.carencia_dias} días.</p>`;
+    return `<div class="reco-item"><span class="sev ${over ? (r.nombre_comercial ? 'mid' : 'hi') : 'lo'}"></span><b>${r.clase} · ${r.detecciones} detección(es)</b>${body}</div>`;
+  }).join('') + `<pre class="sql">${hl(sql)}</pre>`;
+}
+const YOLO_Q = [
+  {q:'Si suben el umbral de confianza de 0.25 a 0.80, ¿qué suele pasar?', o:['Aumentan los falsos positivos y sube el recall','Disminuyen los falsos positivos, pero aumentan los falsos negativos','No cambia nada porque NMS ya filtró las cajas','Aumenta la cantidad de cajas guardadas'], a:1, e:'Con un umbral alto solo quedan cajas muy seguras: sube la precisión y baja el recall. Muevan el control y miren VP, FP y FN.'},
+  {q:'¿Qué hace el paso NMS?', o:['Cambia la clase de las cajas mal clasificadas','Aumenta la resolución de la imagen','Elimina cajas duplicadas de la misma clase que se solapan más que el umbral IoU','Une todas las cajas de la imagen en una sola'], a:2, e:'NMS conserva la caja de mayor confianza y suprime las que se solapan con ella por encima del umbral IoU.'},
+  {q:'¿Por qué x, y, w, h se guardan normalizados entre 0 y 1?', o:['Para ocupar menos espacio en disco','Para que sirvan con cualquier resolución de imagen','Porque MySQL no admite números mayores que 1','Para que la consulta sea más rápida'], a:1, e:'Si la foto se guarda a otra resolución, multiplicar por el ancho y alto nuevos devuelve la caja correcta.'},
+  {q:'¿Qué camino de llaves conecta una detección con el lote donde se tomó?', o:['deteccion.id_lote → lote','deteccion.clase → clase_objetivo → lote','deteccion.id_imagen → imagen.id_lote → lote','No hay forma: hay que guardar el código del lote en cada detección'], a:2, e:'La detección no repite el lote: lo obtiene por la imagen. Guardarlo dos veces crearía una dependencia transitiva.'}
+];
+function renderQuiz(container, list, onAnswer){
+  container.innerHTML = list.map((it,i) => `<div class="q" data-i="${i}"><p class="qt">${i+1}. ${it.q}</p><div class="opts">${it.o.map((o,j) => `<button type="button" class="opt" data-j="${j}"><span class="l">${'ABCD'[j]}</span><span>${o}</span></button>`).join('')}</div><p class="fb" hidden></p></div>`).join('');
+  container.querySelectorAll('.q').forEach(qe => {
+    const it = list[+qe.dataset.i];
+    qe.querySelectorAll('.opt').forEach(b => b.addEventListener('click', () => {
+      const j = +b.dataset.j, ok = j === it.a;
+      qe.querySelectorAll('.opt').forEach(x => { x.disabled = true; if(+x.dataset.j === it.a) x.classList.add('right') });
+      if(!ok) b.classList.add('wrong');
+      const fb = qe.querySelector('.fb'); fb.hidden = false; fb.innerHTML = `<b>${ok ? 'Correcto.' : 'No es esa.'}</b> ${it.e}`;
+      onAnswer && onAnswer(+qe.dataset.i, ok);
+    }));
+  });
+}
+
+/* ═════════════════════ LAB 4 · Consola ═════════════════════ */
+const EXAMPLES = [
+  ['Tablas', "SELECT name FROM sqlite_master WHERE type = 'table';"],
+  ['Productos', 'SELECT nombre_comercial, tipo, categoria_tox, carencia_dias FROM producto;'],
+  ['Lotes por finca', 'SELECT f.nombre AS finca, l.codigo, l.cultivo, l.area_ha\nFROM lote l\nJOIN finca f ON f.id_finca = l.id_finca;'],
+  ['Detecciones', 'SELECT i.id_imagen, l.codigo, d.clase, d.confianza\nFROM deteccion d\nJOIN imagen i ON i.id_imagen = d.id_imagen\nJOIN lote l ON l.id_lote = i.id_lote\nORDER BY d.confianza DESC\nLIMIT 20;'],
+  ['Error de FK', "INSERT INTO aplicacion (id_lote, id_producto, fecha, cantidad)\nVALUES (99, 1, '2026-10-14', 10);"],
+  ['Error de CHECK', "UPDATE lote SET area_ha = -3 WHERE codigo = 'ESP-L01';"],
+  ['Carencia', "SELECT l.codigo, p.nombre_comercial, a.fecha,\n       date(a.fecha, '+' || p.carencia_dias || ' days') AS cosechar_desde\nFROM aplicacion a\nJOIN lote l ON l.id_lote = a.id_lote\nJOIN producto p ON p.id_producto = a.id_producto;"]
+];
+const RETOS = [
+  {t:'Productos de categoría toxicológica II o III', d:'Muestren nombre_comercial y categoria_tox.', sol:"SELECT nombre_comercial, categoria_tox FROM producto WHERE categoria_tox IN ('II','III')", need:'Registren antes productos de categoría II o III en el Laboratorio 2.'},
+  {t:'Área total sembrada por cultivo', d:'Una fila por cultivo con la suma de area_ha.', sol:'SELECT cultivo, SUM(area_ha) FROM lote GROUP BY cultivo'},
+  {t:'Nombre de la finca de cada lote', d:'Código del lote y nombre de su finca (JOIN).', sol:'SELECT l.codigo, f.nombre FROM lote l JOIN finca f ON f.id_finca = l.id_finca'},
+  {t:'Lotes que nunca han recibido una aplicación', d:'Solo el código del lote (LEFT JOIN … IS NULL).', sol:'SELECT l.codigo FROM lote l LEFT JOIN aplicacion a ON a.id_lote = l.id_lote WHERE a.id_aplicacion IS NULL'},
+  {t:'Detecciones por clase con confianza ≥ 0.5', d:'Clase y cantidad, solo detecciones con confianza mayor o igual a 0.5.', sol:'SELECT clase, COUNT(*) FROM deteccion WHERE confianza >= 0.5 GROUP BY clase', need:'Guarden primero al menos un vuelo en el Laboratorio 3.'},
+  {t:'Cantidad total aplicada por producto', d:'nombre_comercial y la suma de cantidad, solo productos con al menos una aplicación.', sol:'SELECT p.nombre_comercial, SUM(a.cantidad) FROM aplicacion a JOIN producto p ON p.id_producto = a.id_producto GROUP BY p.nombre_comercial'}
+];
+const retoDone = new Set(); let retoSel = 0;
+function renderRetos(){
+  $('#retos').innerHTML = RETOS.map((r,i) => `<div class="reto ${retoDone.has(i) ? 'done' : ''} ${i === retoSel ? 'active' : ''}" data-i="${i}">
+    <span class="num">${retoDone.has(i) ? '✓' : i+1}</span>
+    <div><b>${r.t}</b><div class="muted" style="font-size:.84rem">${r.d}</div><div class="fb" id="retofb${i}"></div></div>
+    <button type="button" class="btn" data-check="${i}">Verificar</button></div>`).join('');
+  $$('#retos .reto').forEach(el => el.addEventListener('click', e => { if(e.target.closest('button')) return; retoSel = +el.dataset.i; renderRetos() }));
+  $$('#retos [data-check]').forEach(b => b.addEventListener('click', () => { retoSel = +b.dataset.check; checkReto(retoSel) }));
+}
+function normRows(res){
+  if(!res.length) return [];
+  return res[res.length-1].values.map(r => JSON.stringify(r.map(v => typeof v === 'number' ? Math.round(v*100)/100 : v))).sort();
+}
+function checkReto(i){
+  const r = RETOS[i], user = $('#sqlIn').value.trim();
+  let mine, exp;
+  try{ exp = normRows(db.exec(r.sol)) }catch(e){ exp = [] }
+  if(!/^\s*(SELECT|WITH)\b/i.test(user)){ setRetoFb(i, 'La consulta del reto debe empezar con SELECT.'); return }
+  try{ mine = normRows(db.exec(user)) }catch(e){ setRetoFb(i, `Error: ${esc(e.message)}`); return }
+  if(!exp.length){ setRetoFb(i, r.need || 'El resultado esperado está vacío con los datos actuales.'); return }
+  const ok = mine.length === exp.length && mine.every((v,k) => v === exp[k]);
+  if(ok){ retoDone.add(i); store('agrodatos-retos', JSON.stringify([...retoDone])); if(retoDone.size >= 4) markDone('lab4') }
+  renderRetos();
+  setRetoFb(i, ok ? '<b style="color:var(--ok)">Correcto.</b> El resultado coincide con el esperado.' : `No coincide: su consulta devuelve ${mine.length} fila(s) y se esperaban ${exp.length}. Revisen columnas, filtros y agrupación.`);
+}
+function setRetoFb(i, h){ const el = $('#retofb'+i); if(el) el.innerHTML = h }
+function runConsole(){
+  const sql = $('#sqlIn').value.trim(); if(!sql) return;
+  const t0 = performance.now();
+  try{
+    const res = db.exec(sql);
+    const ms = (performance.now() - t0).toFixed(1);
+    const changes = db.getRowsModified();
+    logSql(sql); persist();
+    if(res.length){ const last = res[res.length-1]; $('#sqlOut').innerHTML = dataTable(last.columns, last.values); $('#sqlMeta').textContent = `${last.values.length} fila(s) · ${ms} ms` }
+    else { $('#sqlOut').innerHTML = `<div class="msg ok">Sentencia ejecutada. Filas afectadas: <b>${changes}</b>.</div>`; $('#sqlMeta').textContent = `${ms} ms` }
+    renderDbState();
+  }catch(e){
+    logSql(sql + '\n-- ERROR: ' + e.message, false);
+    $('#sqlOut').innerHTML = `<div class="msg err">${explainError(e.message) || '<b>Error.</b>'}<br><span class="mono" style="font-size:.78rem">${esc(e.message)}</span></div>`;
+    $('#sqlMeta').textContent = '';
+  }
+}
+
+/* ═════════════════════ LAB 5 · Evaluación ═════════════════════ */
+const FINAL_Q = [
+  {q:'¿Qué garantiza una PRIMARY KEY?', o:['Que la columna se llene sola con la fecha','Que cada fila se identifique de forma única y no sea nula','Que la tabla quede ordenada alfabéticamente','Que la columna exista en otra tabla'], a:1, e:'La llave primaria es única y no nula; por eso identifica cada fila.'},
+  {q:"Ejecutan INSERT INTO aplicacion (id_lote, …) VALUES (99, …) y el lote 99 no existe. ¿Qué ocurre?", o:['Se inserta y el lote 99 se crea automáticamente','Se inserta con id_lote en NULL','El motor rechaza la fila por la llave foránea','Se inserta pero la consulta posterior falla'], a:2, e:'La FOREIGN KEY impide guardar referencias a filas inexistentes (MySQL Error 1452).'},
+  {q:'En un anexo técnico, el periodo de carencia indica…', o:['Las horas antes de volver a entrar al lote','Los días mínimos entre la última aplicación y la cosecha','El tiempo de vencimiento del producto en bodega','Cada cuántos días se debe repetir la aplicación'], a:1, e:'El reingreso se mide en horas y protege al trabajador; la carencia se mide en días y protege al consumidor.'},
+  {q:'La franja roja al pie de la etiqueta corresponde a la categoría toxicológica…', o:['I','II','III','IV'], a:0, e:'I roja, II amarilla, III azul, IV verde.'},
+  {q:'¿Cuál es la diferencia entre WHERE y HAVING?', o:['Son sinónimos','WHERE filtra filas antes de agrupar; HAVING filtra grupos después de agrupar','HAVING solo funciona con JOIN','WHERE solo funciona con números'], a:1, e:'Por eso las funciones de agregado como COUNT(*) se filtran con HAVING.'},
+  {q:'Para listar los lotes sin aplicaciones se usa LEFT JOIN aplicacion a … ¿y qué condición?', o:['WHERE a.cantidad = 0','WHERE a.id_aplicacion IS NULL','HAVING COUNT(*) = 0','WHERE a.id_lote <> l.id_lote'], a:1, e:'El LEFT JOIN conserva todos los lotes; los que no tienen pareja traen NULL en las columnas de aplicacion.'},
+  {q:'Una planilla repite el teléfono del operario en cada aplicación. ¿Qué forma normal se viola?', o:['1FN','2FN','3FN, por la dependencia transitiva documento → teléfono','Ninguna, es correcto'], a:2, e:'El teléfono depende del operario, no de la aplicación. Se mueve a una tabla operario.'},
+  {q:'Lote y producto tienen una relación muchos a muchos. ¿Cómo se implementa?', o:['Con una columna id_producto en lote','Con una lista de productos separados por comas en lote','Con una tabla intermedia (aplicacion) que tenga las dos llaves foráneas','No se puede en una base relacional'], a:2, e:'La tabla intermedia además guarda atributos propios de la relación: fecha y cantidad.'},
+  {q:'¿Qué distingue a YOLO de un clasificador de imágenes?', o:['YOLO solo funciona con video','YOLO dice qué objetos hay y dónde están, en una sola pasada por la red','YOLO no necesita entrenamiento','YOLO solo reconoce personas'], a:1, e:'Un detector entrega cajas con clase y confianza; un clasificador da una sola etiqueta para toda la imagen.'},
+  {q:'El IoU entre dos cajas se calcula como…', o:['Área de la caja más grande ÷ área de la más pequeña','Área de intersección ÷ área de unión','Distancia entre los centros','Suma de las confianzas'], a:1, e:'IoU = 1 significa cajas idénticas; 0 significa que no se tocan.'},
+  {q:'El modelo detectó 2 gusanos con confianza 0.30 y el umbral de la clase es 0.50. ¿Qué hace la vista de detecciones válidas?', o:['Los cuenta como 2 detecciones válidas','Los excluye porque no superan el umbral','Los convierte en planta_sana','Borra la imagen'], a:1, e:'El umbral se guarda en clase_objetivo y la vista lo aplica con un JOIN y un WHERE.'},
+  {q:'¿Por qué el backend de una página web debe usar sentencias parametrizadas (%s, ?) al guardar datos del formulario?', o:['Porque son más cortas','Para evitar la inyección SQL','Porque MySQL no acepta texto directo','Para que el navegador se conecte directo a MySQL'], a:1, e:'Los parámetros se envían separados de la sentencia, así un texto malicioso nunca se ejecuta como SQL.'}
+];
+let finalAnswers = {};
+function renderFinal(){
+  renderQuiz($('#finalQuiz'), FINAL_Q, (i, ok) => { finalAnswers[i] = ok; updateScore() });
+  updateScore();
+}
+function updateScore(){
+  const n = Object.keys(finalAnswers).length, ok = Object.values(finalAnswers).filter(Boolean).length;
+  $('#score').textContent = `${ok}/${FINAL_Q.length}`;
+  $('#scoreTxt').textContent = n === 0 ? 'Sin responder' : n < FINAL_Q.length ? `${n} de ${FINAL_Q.length} respondidas` : ok >= 10 ? 'Excelente dominio del tema' : ok >= 7 ? 'Aprobado. Repasen las explicaciones de las incorrectas' : 'Repasen los laboratorios 1 a 4 y vuelvan a intentarlo';
+  if(n === FINAL_Q.length && ok >= 7) markDone('lab5');
+}
+
+/* ═════════════════════ Arranque ═════════════════════ */
+function bindUI(){
+  $$('nav.tabs button').forEach(b => b.addEventListener('click', () => showLab(b.dataset.lab)));
+  $('#resetDb').addEventListener('click', () => {
+    const b = $('#resetDb');
+    if(b.dataset.confirm !== '1'){ b.dataset.confirm = '1'; b.textContent = '¿Seguro? Toquen de nuevo'; setTimeout(() => { b.dataset.confirm = ''; b.textContent = 'Reiniciar base' }, 3500); return }
+    b.dataset.confirm = ''; b.textContent = 'Reiniciar base';
+    db.close(); freshDb(); scene = null; savedSceneId = null; logSql('-- Base de datos reiniciada a los datos iniciales');
+    renderDbState(); renderTableDetail(selTable); renderCatalog(); fillAplForm(); fillLoteSelect(); updateYolo();
+    $('#reco').innerHTML = '<p class="muted">Guarden un vuelo para ver la recomendación.</p>'; $('#detMsg').innerHTML = '';
+  });
+  $('#relCheck').addEventListener('click', checkRelQuiz);
+  FF.forEach(id => $('#'+id).addEventListener('input', updateRegSql));
+  $('#regForm').addEventListener('submit', submitProduct);
+  $('#clearForm').addEventListener('click', clearForm);
+  $('#aplForm').addEventListener('submit', submitApl);
+  $('#a_lote').addEventListener('change', suggestQty); $('#a_prod').addEventListener('change', suggestQty);
+  $('#fly').addEventListener('click', () => { makeScene(); stage = 'nms'; $('#detMsg').innerHTML = ''; updateYolo() });
+  ['confT','iouT'].forEach(id => $('#'+id).addEventListener('input', () => { if(savedSceneId === null) updateYolo(); else { savedSceneId = null; $('#detMsg').innerHTML = '<div class="msg warn">Cambiaron los umbrales: pueden guardar este resultado como una imagen nueva para compararlo.</div>'; updateYolo() } }));
+  $('#showGT').addEventListener('change', drawCanvas);
+  $$('#stages .stage').forEach(b => b.addEventListener('click', () => { stage = b.dataset.stage; updateYolo() }));
+  $('#saveDet').addEventListener('click', saveDetections);
+  $('#runSql').addEventListener('click', runConsole);
+  $('#sqlIn').addEventListener('keydown', e => { if((e.ctrlKey || e.metaKey) && e.key === 'Enter'){ e.preventDefault(); runConsole() } });
+  $('#examples').innerHTML = EXAMPLES.map((x,i) => `<button type="button" class="chip" data-i="${i}">${x[0]}</button>`).join('');
+  $$('#examples .chip').forEach(c => c.addEventListener('click', () => { $('#sqlIn').value = EXAMPLES[+c.dataset.i][1]; runConsole() }));
+  $('#resetQuiz').addEventListener('click', () => { finalAnswers = {}; renderFinal() });
+}
+async function boot(){
+  bindUI();
+  try{ const p = JSON.parse(load('agrodatos-progress') || '{}'); Object.keys(p).forEach(k => p[k] && markDone(k)) }catch(e){}
+  try{ JSON.parse(load('agrodatos-retos') || '[]').forEach(i => retoDone.add(i)) }catch(e){}
+  if(typeof initSqlJs !== 'function'){
+    await new Promise(res => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-asm.js'; s.onload = res; s.onerror = res; document.head.appendChild(s) });
+  }
+  if(typeof initSqlJs !== 'function'){
+    $('#bootMsg').innerHTML = '<div class="msg err" style="text-align:left;max-width:640px;margin:0 auto"><b>No se pudo cargar el motor SQL.</b> El simulador necesita descargar la librería sql.js desde internet. Revisen la conexión y recarguen la página.</div>';
+    $('#enginePill').className = 'pill dead'; $('#enginePill').textContent = 'Motor SQL no disponible'; return;
+  }
+  SQLlib = await initSqlJs();
+  const saved = load(DB_KEY);
+  if(saved){ try{ db = new SQLlib.Database(b64ToU8(saved)); db.exec('PRAGMA foreign_keys = ON;'); scalar('SELECT COUNT(*) FROM clase_objetivo') }catch(e){ db = null } }
+  if(!db) freshDb();
+  logSql('-- Motor SQL listo. Base de datos agro_campo cargada.\nPRAGMA foreign_keys = ON;');
+  $('#bootMsg').hidden = true;
+  renderDbState(); drawER(); renderRelQuiz(); renderAnexo(); renderCatalog(); fillAplForm(); fillLoteSelect();
+  renderQuiz($('#yoloQuiz'), YOLO_Q); renderRetos(); renderFinal(); updateRegSql(); updateYolo();
+  const h = (location.hash || '').slice(1);
+  showLab(['lab1','lab2','lab3','lab4','lab5'].includes(h) ? h : 'lab1');
+}
+boot();
+</script>
+
+</body></html>
