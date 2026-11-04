@@ -1,0 +1,1824 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Arcade de datos</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Diseño: una máquina de arcade oscura a la izquierda (siempre oscura, es la pantalla del juego)
+   y un cuaderno de laboratorio a la derecha con pestañas: algoritmo, IA, base de datos y MVC. */
+:root{
+  --bg:#F1F0F8; --surface:#FFFFFF; --ink:#1B1838; --muted:#5A5776; --line:#D8D5EA;
+  --primary:#4B3BD6; --on-primary:#FFFFFF; --hit:#FFE08A; --hit-ink:#2B2100;
+  --ok:#11845B; --bad:#C2264F; --code-bg:#F6F5FC;
+  --cab:#14112B; --cab-2:#221E45; --cab-ink:#ECEAFB; --cab-muted:#A7A2CF;
+  --snake:#5BE3B5; --brick:#FF8A5C; --ttt:#7CC4FF; --gold:#FFC94A;
+  --f-display:"Press Start 2P", "Courier New", monospace;
+  --f-body:"Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#100E24; --surface:#1A1736; --ink:#ECEAFB; --muted:#A7A2CF; --line:#2F2B57;
+    --primary:#A79CFF; --on-primary:#140F3A; --hit:#5A4A12; --hit-ink:#FFE9A8;
+    --ok:#4FD69C; --bad:#FF7FA8; --code-bg:#14122C; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#100E24; --surface:#1A1736; --ink:#ECEAFB; --muted:#A7A2CF; --line:#2F2B57;
+  --primary:#A79CFF; --on-primary:#140F3A; --hit:#5A4A12; --hit-ink:#FFE9A8;
+  --ok:#4FD69C; --bad:#FF7FA8; --code-bg:#14122C; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 var(--f-body); display:flex; flex-direction:column}
+button,input,select,textarea{font:inherit; color:inherit}
+:focus-visible{outline:3px solid var(--gold); outline-offset:2px}
+h1,h2,h3{margin:0; text-wrap:balance}
+
+.top{display:flex; flex-wrap:wrap; align-items:center; gap:10px 20px; padding-block:10px; padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px)); background:var(--cab); color:var(--cab-ink)}
+.top h1{font:400 15px/1.4 var(--f-display); letter-spacing:.04em}
+.top p{margin:0; color:var(--cab-muted); font-size:.9rem}
+.games{display:flex; gap:6px; margin-left:auto; flex-wrap:wrap}
+.games button{border:2px solid var(--cab-2); background:transparent; color:var(--cab-ink); border-radius:10px; padding:6px 12px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:8px}
+.games button i{width:10px; height:10px; border-radius:2px; background:var(--c)}
+.games button[aria-selected="true"]{border-color:var(--c); background:var(--cab-2)}
+
+.app{flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1fr) minmax(340px,470px)}
+.cabinet{min-height:0; overflow:auto; background:var(--cab); color:var(--cab-ink); display:flex; flex-direction:column; align-items:center; gap:10px; padding-block:12px 16px; padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:16px}
+.hud{width:100%; max-width:520px; display:grid; grid-template-columns:repeat(3,1fr); gap:8px; font-family:var(--f-display); font-size:10px; line-height:1.6}
+.hud div{background:var(--cab-2); border-radius:8px; padding:6px 8px}
+.hud b{display:block; font-size:14px; font-weight:400; color:var(--gc,var(--gold)); font-variant-numeric:tabular-nums}
+.hud small{display:block; font:12px/1.3 var(--f-body); color:var(--cab-muted); margin-top:2px}
+.screen{position:relative; width:100%; max-width:520px; aspect-ratio:1; border-radius:14px; overflow:hidden; box-shadow:0 0 0 3px var(--cab-2), 0 0 40px -8px var(--gc,var(--snake))}
+#game{display:block; width:100%; height:100%; touch-action:none; image-rendering:pixelated}
+.overlay{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; text-align:center; padding:24px; background:rgba(20,17,43,.78)}
+.overlay h2{font:400 16px/1.5 var(--f-display); color:var(--gc,var(--gold))}
+.overlay p{margin:0; max-width:34ch; color:var(--cab-ink)}
+.overlay code{font-family:var(--f-mono); font-size:12px; background:var(--cab); padding:6px 8px; border-radius:6px; color:var(--gold); max-width:100%; overflow-wrap:anywhere; text-align:left}
+.cbtn{border:0; border-radius:10px; padding:10px 16px; font-weight:700; cursor:pointer; background:var(--gc,var(--gold)); color:#14112B}
+.cbtn.ghost{background:transparent; color:var(--cab-ink); box-shadow:inset 0 0 0 2px var(--cab-2)}
+.cbtn[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--gc); background:var(--cab-2); color:var(--gc)}
+.cbtn:disabled{opacity:.4; cursor:not-allowed}
+.controls{width:100%; max-width:520px; display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.controls label{display:flex; align-items:center; gap:8px; font-size:.9rem; color:var(--cab-muted)}
+.controls input[type=range]{width:110px; accent-color:var(--gc)}
+.who{width:100%; max-width:520px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:.9rem; color:var(--cab-muted)}
+.who select,.who input{background:var(--cab-2); border:1px solid #39345f; border-radius:8px; padding:6px 8px; color:var(--cab-ink)}
+.who input{width:9.5em}
+.pad{display:none; gap:6px}
+.pad button{width:46px; height:40px; border-radius:10px; border:0; background:var(--cab-2); color:var(--cab-ink); font-size:18px; cursor:pointer}
+@media (pointer:coarse){ .pad{display:flex} }
+.toast{width:100%; max-width:520px; font:12px/1.5 var(--f-mono); color:var(--cab-muted); background:var(--cab-2); border-radius:8px; padding:8px 10px; overflow-wrap:anywhere}
+.toast b{color:var(--gold); font-weight:600}
+
+.panel{min-height:0; display:flex; flex-direction:column; background:var(--surface); border-left:1px solid var(--line)}
+.tabs{display:flex; gap:2px; padding:8px 12px 0; border-bottom:1px solid var(--line); overflow-x:auto}
+.tabs button{border:0; background:transparent; padding:8px 12px; border-radius:10px 10px 0 0; cursor:pointer; font-weight:700; color:var(--muted); white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--ink); background:var(--bg); box-shadow:inset 0 3px 0 var(--primary)}
+.pane{flex:1; min-height:0; overflow:auto; padding:14px 16px 24px; display:flex; flex-direction:column; gap:14px}
+.pane[hidden]{display:none}
+.pane h2{font-size:1.15rem}
+.pane h3{font-size:1rem}
+.pane p{margin:0}
+.lead{color:var(--muted)}
+.algo{list-style:none; margin:0; padding:10px 0; background:var(--code-bg); border:1px solid var(--line); border-radius:12px; font:13px/1.55 var(--f-mono); counter-reset:l}
+.algo li{display:grid; grid-template-columns:28px 1fr auto; gap:6px; padding:1px 10px 1px 0; counter-increment:l; transition:background .12s}
+.algo li::before{content:counter(l); color:var(--muted); text-align:right}
+.algo li span{white-space:pre-wrap}
+.algo li em{font-style:normal; font-family:var(--f-body); font-size:11px; font-weight:700; color:var(--muted); align-self:center}
+.algo li.on{background:var(--hit); color:var(--hit-ink)}
+.algo li.on::before,.algo li.on em{color:var(--hit-ink)}
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px}
+.stat{border:1px solid var(--line); border-radius:10px; padding:8px 10px}
+.stat b{display:block; font-size:1.25rem; font-variant-numeric:tabular-nums}
+.stat span{font-size:.85rem; color:var(--muted)}
+table.cond{border-collapse:collapse; width:100%; font-size:.9rem}
+table.cond th,table.cond td{border-bottom:1px solid var(--line); padding:5px 6px; text-align:left}
+table.cond td.n{text-align:right; font-variant-numeric:tabular-nums; font-weight:700}
+table.cond th{color:var(--muted); font-weight:400}
+.row{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.btn{border:1px solid var(--line); background:var(--bg); border-radius:10px; padding:7px 12px; cursor:pointer; font-weight:700}
+.btn.main{background:var(--primary); border-color:var(--primary); color:var(--on-primary)}
+.btn[aria-pressed="true"]{background:var(--primary); border-color:var(--primary); color:var(--on-primary)}
+.btn:disabled{opacity:.45; cursor:not-allowed}
+.note{border-left:4px solid var(--gold); background:var(--bg); border-radius:0 10px 10px 0; padding:8px 10px; font-size:.93rem}
+label.sl{display:grid; grid-template-columns:1fr auto; gap:2px 8px; font-weight:700; font-size:.92rem}
+label.sl input{grid-column:1/-1; width:100%; accent-color:var(--primary)}
+label.sl output{font-variant-numeric:tabular-nums}
+.two{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.vision{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.vision figure{margin:0}
+.vision canvas{width:100%; aspect-ratio:1; border-radius:10px; background:#000; image-rendering:pixelated; display:block}
+.vision figcaption{font-size:.8rem; color:var(--muted); margin-top:4px}
+.chk{display:flex; align-items:center; gap:8px; font-weight:700; font-size:.92rem; cursor:pointer}
+.chk input{width:18px; height:18px; accent-color:var(--primary)}
+.seg{display:flex; flex-wrap:wrap; gap:6px}
+
+textarea#sqlIn{width:100%; min-height:118px; resize:vertical; font:13px/1.5 var(--f-mono); background:var(--code-bg); color:var(--ink); border:1px solid var(--line); border-radius:12px; padding:10px}
+.chips{display:flex; flex-wrap:wrap; gap:6px}
+.chips button{border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:4px 10px; font-size:.85rem; cursor:pointer}
+.chips button:hover{border-color:var(--primary)}
+.cat{font-size:.8rem; font-weight:700; color:var(--muted); margin:2px 0 -2px}
+.msg{border-radius:10px; padding:8px 10px; font-size:.93rem}
+.msg.ok{background:color-mix(in srgb,var(--ok) 14%,var(--surface)); color:var(--ink); border:1px solid color-mix(in srgb,var(--ok) 40%,var(--line))}
+.msg.err{background:color-mix(in srgb,var(--bad) 12%,var(--surface)); color:var(--ink); border:1px solid color-mix(in srgb,var(--bad) 45%,var(--line))}
+.msg.err b{color:var(--bad)}
+.result{overflow:auto; max-height:300px; border:1px solid var(--line); border-radius:10px}
+.result table{border-collapse:collapse; font-size:.86rem; min-width:100%}
+.result th,.result td{padding:5px 9px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap}
+.result th{position:sticky; top:0; background:var(--bg); font-family:var(--f-mono); font-weight:600; font-size:.8rem}
+.result td.num{text-align:right; font-variant-numeric:tabular-nums}
+.result td.null{color:var(--muted); font-style:italic}
+.plan{list-style:none; margin:0; padding:0; display:grid; gap:6px}
+.plan li{display:grid; grid-template-columns:100px 1fr; gap:4px 10px; align-items:center; font-size:.88rem}
+.plan .cl{font:600 12px/1.3 var(--f-mono); color:var(--primary)}
+.plan .bar{height:10px; border-radius:5px; background:var(--line); overflow:hidden}
+.plan .bar i{display:block; height:100%; background:var(--primary); border-radius:5px; min-width:3px}
+.plan .ex{grid-column:2; color:var(--muted); font-size:.82rem}
+.plan .dt{grid-column:2; font:12px/1.4 var(--f-mono); overflow-wrap:anywhere}
+.log{list-style:none; margin:0; padding:0; display:grid; gap:6px; font:12px/1.45 var(--f-mono)}
+.log li{background:var(--code-bg); border:1px solid var(--line); border-radius:8px; padding:6px 8px; overflow-wrap:anywhere}
+.mvc{display:grid; gap:8px}
+.mvc>div{border:2px solid; border-radius:12px; padding:10px}
+.mvc .c{border-color:var(--gold)} .mvc .m{border-color:var(--primary)} .mvc .v{border-color:var(--ok)}
+.mvc .arrow{border:0; padding:0; text-align:center; color:var(--muted); font-size:.85rem}
+.mvc pre{margin:6px 0 0; font:12px/1.4 var(--f-mono); max-height:220px; overflow:auto; white-space:pre-wrap}
+.mvc ol,.mvc ul{margin:6px 0 0; padding-left:18px; font-size:.88rem}
+.schema{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; font:12px/1.5 var(--f-mono)}
+.schema div{border:1px solid var(--line); border-radius:10px; overflow:hidden}
+.schema b{display:block; background:var(--primary); color:var(--on-primary); padding:3px 8px}
+.schema span{display:block; padding:0 8px}
+.schema .pk{font-weight:600} .schema .fk{color:var(--bad)}
+.sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)}
+
+@media (max-width:900px){
+  .app{grid-template-columns:minmax(0,1fr); grid-template-rows:auto auto}
+  body{height:auto} html{height:auto}
+  .panel{border-left:0; border-top:1px solid var(--line)}
+  .pane{overflow:visible}
+  .games{margin-left:0}
+}
+@media (prefers-reduced-motion:reduce){ .algo li{transition:none} }
+</style>
+
+<header class="top">
+  <div>
+    <h1>ARCADE DE DATOS</h1>
+    <p>Tres juegos clásicos para ver algoritmos, IA, visión por computador, SQL y MVC funcionando</p>
+  </div>
+  <div class="games" role="tablist" aria-label="Juegos">
+    <button role="tab" data-g="culebrita" style="--c:var(--snake)" aria-selected="true"><i></i>Culebrita</button>
+    <button role="tab" data-g="ladrillos" style="--c:var(--brick)" aria-selected="false"><i></i>Rompeladrillos</button>
+    <button role="tab" data-g="triqui" style="--c:var(--ttt)" aria-selected="false"><i></i>Triqui</button>
+  </div>
+</header>
+
+<main class="app">
+  <section class="cabinet" id="cabinet" aria-label="Máquina de juego">
+    <div class="who">
+      <label for="who">Jugador</label>
+      <select id="who"></select>
+      <span id="newWho" hidden>
+        <input id="newName" maxlength="40" placeholder="Tu nombre" aria-label="Nombre del jugador nuevo">
+        <select id="newCurso" aria-label="Curso"><option value="9">9.°</option><option value="10" selected>10.°</option><option value="11">11.°</option></select>
+        <button class="cbtn" id="addWho" type="button">Guardar</button>
+      </span>
+    </div>
+    <div class="hud" id="hud"></div>
+    <div class="screen">
+      <canvas id="game" width="480" height="480" aria-label="Pantalla del juego"></canvas>
+      <div class="overlay" id="overlay"></div>
+    </div>
+    <div class="controls" id="controls"></div>
+    <div class="pad" id="pad" aria-label="Controles táctiles">
+      <button data-k="ArrowLeft" aria-label="Izquierda">◀</button>
+      <button data-k="ArrowUp" aria-label="Arriba">▲</button>
+      <button data-k="ArrowDown" aria-label="Abajo">▼</button>
+      <button data-k="ArrowRight" aria-label="Derecha">▶</button>
+    </div>
+    <p class="toast" id="toast" aria-live="polite">Cuando termine una partida, aquí verás la sentencia SQL que la guardó en la base de datos.</p>
+  </section>
+
+  <aside class="panel">
+    <div class="tabs" role="tablist" aria-label="Paneles">
+      <button role="tab" data-p="algo" aria-selected="true">Algoritmo</button>
+      <button role="tab" data-p="ia" aria-selected="false">IA y visión</button>
+      <button role="tab" data-p="db" aria-selected="false">Base de datos</button>
+      <button role="tab" data-p="mvc" aria-selected="false">MVC</button>
+    </div>
+
+    <div class="pane" id="p-algo">
+      <div>
+        <h2 id="algoTitle">El algoritmo de la Culebrita</h2>
+        <p class="lead" id="algoLead"></p>
+      </div>
+      <ol class="algo" id="algo"></ol>
+      <div class="row">
+        <button class="btn" id="stepBtn">Avanzar una vuelta</button>
+        <label class="sl" style="flex:1;min-width:180px">Velocidad <output id="spdOut"></output>
+          <input type="range" id="spd" min="1" max="10" value="5"></label>
+      </div>
+      <div class="stats" id="loopStats"></div>
+      <table class="cond" id="condTable"></table>
+      <p class="note" id="algoNote"></p>
+    </div>
+
+    <div class="pane" id="p-ia" hidden></div>
+
+    <div class="pane" id="p-db" hidden>
+      <div>
+        <h2>La base de datos del arcade</h2>
+        <p class="lead">Cada partida que termina se guarda con un INSERT. Escribe tus propias consultas y mira en qué orden las ejecuta la base de datos.</p>
+      </div>
+      <div class="schema" id="schema"></div>
+      <div>
+        <label for="sqlIn" class="cat">Tu consulta (Ctrl + Enter para ejecutar)</label>
+        <textarea id="sqlIn" spellcheck="false">SELECT j.nombre, p.puntaje, p.fecha
+FROM partidas p
+JOIN jugadores j ON p.jugador_id = j.id
+WHERE p.juego_id = 1
+ORDER BY p.puntaje DESC
+LIMIT 5;</textarea>
+        <div class="row">
+          <button class="btn main" id="runSql">Ejecutar</button>
+          <button class="btn" id="clearSql">Borrar</button>
+        </div>
+      </div>
+      <div id="examples"></div>
+      <div id="sqlMsg"></div>
+      <div id="sqlRes"></div>
+      <div id="sqlPlanBox" hidden>
+        <h3>Cómo la ejecutó la base de datos</h3>
+        <p class="lead" style="font-size:.9rem;margin:2px 0 8px">Escribimos SELECT primero, pero la base de datos empieza por FROM. Cada barra muestra cuántas filas o grupos quedan después de ese paso.</p>
+        <ol class="plan" id="sqlPlan"></ol>
+      </div>
+      <div>
+        <h3>Lo que guardó el juego</h3>
+        <ul class="log" id="gameLog"><li>Termina una partida para ver aquí su INSERT.</li></ul>
+      </div>
+      <div>
+        <h3>Llevar tus datos al cuaderno de Colab</h3>
+        <p class="lead" style="font-size:.9rem;margin:2px 0 8px">Copia los jugadores y las partidas nuevas y pégalos en la parte 18 del cuaderno.</p>
+        <div class="row">
+          <button class="btn main" id="copySql">Copiar SQL para el cuaderno</button>
+          <button class="btn" id="resetDb">Reiniciar la base de datos</button>
+        </div>
+        <p id="exportInfo" class="lead" style="font-size:.88rem;margin-top:6px"></p>
+        <textarea id="exportTxt" class="sr" aria-hidden="true" tabindex="-1"></textarea>
+        <p class="msg err" id="resetAsk" hidden>Se borrarán los jugadores y partidas que agregaste. <button class="btn" id="resetYes">Sí, reiniciar</button> <button class="btn" id="resetNo">Cancelar</button></p>
+      </div>
+    </div>
+
+    <div class="pane" id="p-mvc" hidden>
+      <div>
+        <h2>Este arcade es una aplicación MVC</h2>
+        <p class="lead">Juega o toca un botón y mira cómo viaja tu acción por las tres partes.</p>
+      </div>
+      <div class="mvc">
+        <div class="c"><h3>Controlador</h3><p>Escucha el teclado, el ratón y los botones, y le pide al modelo que cambie.</p><ol id="mvcC"><li>Todavía no has hecho ninguna acción.</li></ol></div>
+        <div class="arrow">cambia los datos de ↓</div>
+        <div class="m"><h3>Modelo</h3><p>Guarda el estado del juego, las reglas y la base de datos.</p><pre id="mvcM"></pre></div>
+        <div class="arrow">la vista lee el modelo y dibuja ↓</div>
+        <div class="v"><h3>Vista</h3><p>Dibuja la pantalla y los paneles. No cambia nada.</p><ul id="mvcV"></ul></div>
+      </div>
+      <p class="note">En el código de esta página las tres partes están separadas: el objeto <code>Modelo</code> con cada juego, las funciones <code>dibujar…()</code> de la vista y los manejadores de eventos del controlador.</p>
+    </div>
+  </aside>
+</main>
+
+<script>
+/* MiniSQL: un motor SQL pequeño para enseñar. Entiende SELECT (JOIN, WHERE, GROUP BY, HAVING,
+   ORDER BY, LIMIT), INSERT, UPDATE y DELETE, revisa claves primarias y foráneas, y registra cada paso
+   de la ejecución para poder mostrar el orden en que la base de datos procesa una consulta.
+   Sigue las reglas de MySQL en lo que más se nota en clase: la división da decimales y los textos
+   se comparan sin distinguir mayúsculas ni tildes. */
+var MiniSQL = (function () {
+  'use strict';
+  var KW = ['SELECT','DISTINCT','FROM','WHERE','GROUP','BY','HAVING','ORDER','ASC','DESC','LIMIT','OFFSET','JOIN','INNER','LEFT','RIGHT','OUTER','CROSS','ON','AS','AND','OR','NOT','IN','BETWEEN','LIKE','IS','NULL','INSERT','INTO','VALUES','UPDATE','SET','DELETE','CASE','WHEN','THEN','ELSE','END','TRUE','FALSE','CREATE','DROP','TABLE','ALTER','UNION','DIV'];
+  var KWS = {}; KW.forEach(function (k) { KWS[k] = 1; });
+  var AGG = { COUNT: 1, SUM: 1, AVG: 1, MIN: 1, MAX: 1 };
+
+  function SqlError(msg) { var e = new Error(msg); e.sql = true; return e; }
+  function low(s) { return String(s).toLowerCase(); }
+
+  /* ---------- 1. Separar el texto en piezas (tokens) ---------- */
+  function tokenize(src) {
+    var t = [], i = 0, n = src.length, m;
+    while (i < n) {
+      var c = src[i];
+      if (/\s/.test(c)) { i++; continue; }
+      if (c === '-' && src[i + 1] === '-') { while (i < n && src[i] !== '\n') i++; continue; }
+      if (c === '#') { while (i < n && src[i] !== '\n') i++; continue; }
+      if (c === "'") {
+        var j = i + 1, s = '';
+        for (;;) {
+          if (j >= n) throw SqlError("Falta cerrar una comilla simple ( ' ). Los textos van entre comillas: 'Culebrita'.");
+          if (src[j] === "'") { if (src[j + 1] === "'") { s += "'"; j += 2; continue; } break; }
+          s += src[j++];
+        }
+        t.push({ k: 'str', v: s, p: i }); i = j + 1; continue;
+      }
+      if (c === '"' || c === '`') {
+        var e2 = src.indexOf(c, i + 1);
+        if (e2 < 0) throw SqlError('Falta cerrar el símbolo ' + c + '.');
+        if (c === '"') { t.push({ k: 'str', v: src.slice(i + 1, e2), p: i }); }
+        else t.push({ k: 'id', v: src.slice(i + 1, e2), p: i });
+        i = e2 + 1; continue;
+      }
+      if ((m = /^(\d+\.\d*|\.\d+|\d+)(e[+-]?\d+)?/i.exec(src.slice(i))) && /[\d.]/.test(c)) {
+        t.push({ k: 'num', v: parseFloat(m[0]), p: i }); i += m[0].length; continue;
+      }
+      if ((m = /^[A-Za-z_À-ɏ][A-Za-z0-9_À-ɏ]*/.exec(src.slice(i)))) {
+        var w = m[0], U = w.toUpperCase();
+        t.push(KWS[U] ? { k: 'kw', v: U, p: i, raw: w } : { k: 'id', v: w, p: i }); i += w.length; continue;
+      }
+      var two = src.substr(i, 2);
+      if (['<=', '>=', '<>', '!=', '||', '=='].indexOf(two) >= 0) { t.push({ k: 'op', v: two === '==' ? '=' : two === '!=' ? '<>' : two, p: i }); i += 2; continue; }
+      if ('=<>+-*/%(),.;'.indexOf(c) >= 0) { t.push({ k: 'op', v: c, p: i }); i++; continue; }
+      throw SqlError('No entiendo el símbolo «' + c + '».');
+    }
+    t.push({ k: 'eof', p: n });
+    return t;
+  }
+
+  /* ---------- 2. Entender la estructura (análisis sintáctico) ---------- */
+  function Parser(tokens) { this.t = tokens; this.i = 0; }
+  var P = Parser.prototype;
+  P.peek = function (o) { return this.t[Math.min(this.i + (o || 0), this.t.length - 1)]; };
+  P.isKw = function (w, o) { var k = this.peek(o); return k.k === 'kw' && k.v === w; };
+  P.isOp = function (v, o) { var k = this.peek(o); return k.k === 'op' && k.v === v; };
+  P.eatKw = function (w) { if (this.isKw(w)) { this.i++; return true; } return false; };
+  P.eatOp = function (v) { if (this.isOp(v)) { this.i++; return true; } return false; };
+  P.near = function () {
+    var k = this.peek();
+    return k.k === 'eof' ? 'al final de la sentencia' : 'cerca de «' + (k.k === 'str' ? "'" + k.v + "'" : (k.raw || k.v)) + '»';
+  };
+  P.expectKw = function (w, hint) { if (!this.eatKw(w)) throw SqlError('Se esperaba ' + w + ' ' + this.near() + '.' + (hint ? ' ' + hint : '')); };
+  P.expectOp = function (v, hint) { if (!this.eatOp(v)) throw SqlError('Se esperaba «' + v + '» ' + this.near() + '.' + (hint ? ' ' + hint : '')); };
+  P.ident = function (what) {
+    var k = this.peek();
+    if (k.k === 'id') { this.i++; return k.v; }
+    if (k.k === 'kw') throw SqlError('Se esperaba ' + (what || 'un nombre') + ' ' + this.near() + ', pero ' + k.v + ' es una palabra reservada de SQL.');
+    throw SqlError('Se esperaba ' + (what || 'un nombre') + ' ' + this.near() + '.');
+  };
+
+  P.script = function () {
+    var out = [];
+    while (this.peek().k !== 'eof') {
+      if (this.eatOp(';')) continue;
+      var st = this.statement();
+      out.push(st);
+      if (!this.eatOp(';') && this.peek().k !== 'eof')
+        throw SqlError('Sobra algo ' + this.near() + '. Si escribiste dos sentencias, sepáralas con punto y coma ( ; ).');
+    }
+    if (!out.length) throw SqlError('Escribe una sentencia SQL, por ejemplo: SELECT * FROM jugadores;');
+    return out;
+  };
+  P.statement = function () {
+    var start = this.peek().p, st;
+    if (this.isKw('SELECT')) st = this.select();
+    else if (this.isKw('INSERT')) st = this.insert();
+    else if (this.isKw('UPDATE')) st = this.update();
+    else if (this.isKw('DELETE')) st = this.del();
+    else if (this.isKw('CREATE') || this.isKw('DROP') || this.isKw('ALTER'))
+      throw SqlError('En esta consola las tablas ya están creadas. CREATE, DROP y ALTER los practicas en el cuaderno de Colab o en MySQL Workbench.');
+    else throw SqlError('Una sentencia debe empezar por SELECT, INSERT, UPDATE o DELETE. Encontré ' + this.near().replace('cerca de ', '') + '.');
+    st.start = start; st.end = this.peek().p;
+    return st;
+  };
+  P.alias = function () {
+    if (this.eatKw('AS')) return this.ident('un alias');
+    if (this.peek().k === 'id') return this.ident();
+    return null;
+  };
+  P.select = function () {
+    this.expectKw('SELECT');
+    var s = { type: 'select', distinct: false, cols: [], from: null, joins: [], where: null, group: [], having: null, order: [], limit: null, offset: 0 };
+    s.distinct = this.eatKw('DISTINCT');
+    do {
+      if (this.isOp('*')) { this.i++; s.cols.push({ star: true }); }
+      else if (this.peek().k === 'id' && this.isOp('.', 1) && this.isOp('*', 2)) { s.cols.push({ star: true, table: this.peek().v }); this.i += 3; }
+      else {
+        var st = this.peek().p, e = this.expr(), en = this.peek().p;
+        s.cols.push({ e: e, alias: this.alias(), text: null, span: [st, en] });
+      }
+    } while (this.eatOp(','));
+    if (this.eatKw('FROM')) {
+      s.from = { table: this.ident('el nombre de una tabla'), alias: null }; s.from.alias = this.alias();
+      for (;;) {
+        var type = null;
+        if (this.eatOp(',')) type = 'CROSS';
+        else if (this.eatKw('CROSS')) { this.expectKw('JOIN'); type = 'CROSS'; }
+        else if (this.eatKw('INNER')) { this.expectKw('JOIN'); type = 'INNER'; }
+        else if (this.eatKw('LEFT')) { this.eatKw('OUTER'); this.expectKw('JOIN'); type = 'LEFT'; }
+        else if (this.isKw('RIGHT')) throw SqlError('RIGHT JOIN no está en esta consola: escribe la consulta al revés con LEFT JOIN.');
+        else if (this.eatKw('JOIN')) type = 'INNER';
+        if (!type) break;
+        var j = { type: type, table: this.ident('el nombre de una tabla'), alias: null, on: null };
+        j.alias = this.alias();
+        if (type !== 'CROSS') { this.expectKw('ON', 'Después de JOIN tabla va ON y la condición que une las tablas, por ejemplo ON p.jugador_id = j.id'); j.on = this.expr(); }
+        s.joins.push(j);
+      }
+    }
+    if (this.eatKw('WHERE')) s.where = this.expr();
+    if (this.eatKw('GROUP')) { this.expectKw('BY'); do { s.group.push(this.expr()); } while (this.eatOp(',')); }
+    if (this.eatKw('HAVING')) s.having = this.expr();
+    if (this.eatKw('ORDER')) {
+      this.expectKw('BY');
+      do { var oe = this.expr(), desc = false; if (this.eatKw('DESC')) desc = true; else this.eatKw('ASC'); s.order.push({ e: oe, desc: desc }); } while (this.eatOp(','));
+    }
+    if (this.eatKw('LIMIT')) {
+      var a = this.number('LIMIT');
+      if (this.eatOp(',')) { s.offset = a; s.limit = this.number('LIMIT'); }
+      else { s.limit = a; if (this.eatKw('OFFSET')) s.offset = this.number('OFFSET'); }
+    }
+    if (this.isKw('UNION')) throw SqlError('UNION no está en esta consola.');
+    if (this.isKw('WHERE') || this.isKw('GROUP') || this.isKw('HAVING') || this.isKw('ORDER'))
+      throw SqlError('Las cláusulas van en este orden: SELECT, FROM, JOIN, WHERE, GROUP BY, HAVING, ORDER BY, LIMIT. ' + this.peek().v + ' quedó en un lugar que no le corresponde.');
+    return s;
+  };
+  P.number = function (what) {
+    var k = this.peek();
+    if (k.k !== 'num') throw SqlError('Después de ' + what + ' va un número entero ' + this.near() + '.');
+    this.i++; return k.v;
+  };
+  P.insert = function () {
+    this.expectKw('INSERT'); this.expectKw('INTO', 'Se escribe INSERT INTO tabla (columnas) VALUES (valores).');
+    var s = { type: 'insert', table: this.ident('el nombre de una tabla'), cols: null, rows: [] };
+    if (this.eatOp('(')) { s.cols = []; do { s.cols.push(this.ident('el nombre de una columna')); } while (this.eatOp(',')); this.expectOp(')'); }
+    this.expectKw('VALUES', 'Se escribe INSERT INTO tabla (columnas) VALUES (valores).');
+    do {
+      this.expectOp('(', 'Los valores van entre paréntesis.');
+      var r = []; do { r.push(this.expr()); } while (this.eatOp(','));
+      this.expectOp(')'); s.rows.push(r);
+    } while (this.eatOp(','));
+    return s;
+  };
+  P.update = function () {
+    this.expectKw('UPDATE');
+    var s = { type: 'update', table: this.ident('el nombre de una tabla'), sets: [], where: null };
+    this.expectKw('SET', 'Se escribe UPDATE tabla SET columna = valor WHERE condición.');
+    do { var c = this.ident('el nombre de una columna'); this.expectOp('='); s.sets.push({ col: c, e: this.expr() }); } while (this.eatOp(','));
+    if (this.eatKw('WHERE')) s.where = this.expr();
+    return s;
+  };
+  P.del = function () {
+    this.expectKw('DELETE'); this.expectKw('FROM', 'Se escribe DELETE FROM tabla WHERE condición.');
+    var s = { type: 'delete', table: this.ident('el nombre de una tabla'), where: null };
+    if (this.eatKw('WHERE')) s.where = this.expr();
+    return s;
+  };
+
+  P.expr = function () { return this.or(); };
+  P.or = function () { var l = this.and(); while (this.eatKw('OR')) l = { op: 'OR', l: l, r: this.and() }; return l; };
+  P.and = function () { var l = this.not(); while (this.eatKw('AND')) l = { op: 'AND', l: l, r: this.not() }; return l; };
+  P.not = function () { if (this.eatKw('NOT')) return { op: 'NOT', e: this.not() }; return this.cmp(); };
+  P.cmp = function () {
+    var l = this.add();
+    for (;;) {
+      var k = this.peek();
+      if (k.k === 'op' && ['=', '<>', '<', '>', '<=', '>='].indexOf(k.v) >= 0) { this.i++; l = { op: k.v, l: l, r: this.add() }; continue; }
+      if (this.eatKw('IS')) { var nn = this.eatKw('NOT'); this.expectKw('NULL', 'Se escribe IS NULL o IS NOT NULL.'); l = { op: 'ISNULL', e: l, not: nn }; continue; }
+      var neg = false;
+      if (this.isKw('NOT') && (this.isKw('IN', 1) || this.isKw('BETWEEN', 1) || this.isKw('LIKE', 1))) { this.i++; neg = true; }
+      if (this.eatKw('IN')) {
+        this.expectOp('(', 'Después de IN va una lista entre paréntesis: IN (1, 2, 3).');
+        if (this.isKw('SELECT')) throw SqlError('Las subconsultas (un SELECT dentro de otro) no están en esta consola. Intenta resolverlo con JOIN.');
+        var list = []; do { list.push(this.expr()); } while (this.eatOp(','));
+        this.expectOp(')'); l = { op: 'IN', e: l, list: list, not: neg }; continue;
+      }
+      if (this.eatKw('BETWEEN')) { var a = this.add(); this.expectKw('AND', 'Se escribe BETWEEN valor1 AND valor2.'); l = { op: 'BETWEEN', e: l, a: a, b: this.add(), not: neg }; continue; }
+      if (this.eatKw('LIKE')) { l = { op: 'LIKE', l: l, r: this.add(), not: neg }; continue; }
+      return l;
+    }
+  };
+  P.add = function () {
+    var l = this.mul();
+    for (;;) {
+      if (this.isOp('+') || this.isOp('-') || this.isOp('||')) { var o = this.peek().v; this.i++; l = { op: o, l: l, r: this.mul() }; }
+      else return l;
+    }
+  };
+  P.mul = function () {
+    var l = this.unary();
+    for (;;) {
+      if (this.isOp('*') || this.isOp('/') || this.isOp('%')) { var o = this.peek().v; this.i++; l = { op: o, l: l, r: this.unary() }; }
+      else if (this.eatKw('DIV')) l = { op: 'DIV', l: l, r: this.unary() };
+      else return l;
+    }
+  };
+  P.unary = function () {
+    if (this.eatOp('-')) return { op: 'NEG', e: this.unary() };
+    if (this.eatOp('+')) return this.unary();
+    return this.primary();
+  };
+  P.primary = function () {
+    var k = this.peek();
+    if (k.k === 'num') { this.i++; return { lit: k.v }; }
+    if (k.k === 'str') { this.i++; return { lit: k.v }; }
+    if (this.eatKw('NULL')) return { lit: null };
+    if (this.eatKw('TRUE')) return { lit: 1 };
+    if (this.eatKw('FALSE')) return { lit: 0 };
+    if (this.eatOp('(')) {
+      if (this.isKw('SELECT')) throw SqlError('Las subconsultas (un SELECT dentro de otro) no están en esta consola. Intenta resolverlo con JOIN.');
+      var e = this.expr(); this.expectOp(')', 'Revisa que cada paréntesis que abres tenga su cierre.'); return e;
+    }
+    if (this.eatKw('CASE')) {
+      var c = { op: 'CASE', base: null, whens: [], els: null };
+      if (!this.isKw('WHEN')) c.base = this.expr();
+      while (this.eatKw('WHEN')) { var w = this.expr(); this.expectKw('THEN'); c.whens.push([w, this.expr()]); }
+      if (!c.whens.length) throw SqlError('CASE necesita al menos un WHEN … THEN ….');
+      if (this.eatKw('ELSE')) c.els = this.expr();
+      this.expectKw('END', 'Todo CASE termina con END.');
+      return c;
+    }
+    if (k.k === 'id') {
+      this.i++;
+      if (this.eatOp('(')) {
+        var f = { fn: k.v.toUpperCase(), args: [], star: false, distinct: false };
+        if (this.eatOp('*')) f.star = true;
+        else if (!this.isOp(')')) { f.distinct = this.eatKw('DISTINCT'); do { f.args.push(this.expr()); } while (this.eatOp(',')); }
+        this.expectOp(')');
+        return f;
+      }
+      if (this.eatOp('.')) return { col: this.ident('el nombre de una columna'), table: k.v };
+      return { col: k.v };
+    }
+    if (k.k === 'eof') throw SqlError('La sentencia quedó incompleta: falta algo al final.');
+    throw SqlError('No esperaba ' + this.near().replace('cerca de ', '') + ' en este lugar.');
+  };
+
+  /* ---------- 3. Evaluar expresiones ---------- */
+  function isNum(v) { return typeof v === 'number'; }
+  function toNum(v) {
+    if (v === null) return null;
+    if (isNum(v)) return v;
+    var x = parseFloat(v); return isNaN(x) ? 0 : x;
+  }
+  function cmp(a, b) {
+    if (a === null || b === null) return null;
+    var na = isNum(a) || (a !== '' && !isNaN(Number(a)) && isNum(b));
+    var nb = isNum(b) || (b !== '' && !isNaN(Number(b)) && isNum(a));
+    if (na && nb) { var x = Number(a), y = Number(b); return x < y ? -1 : x > y ? 1 : 0; }
+    return String(a).localeCompare(String(b), 'es', { sensitivity: 'base' });
+  }
+  function truthy(v) { if (v === null) return false; if (isNum(v)) return v !== 0; var x = parseFloat(v); return !isNaN(x) && x !== 0; }
+  function tri(v) { return v === null ? null : truthy(v) ? 1 : 0; }
+  function likeRx(p) {
+    var s = '^';
+    for (var i = 0; i < p.length; i++) { var c = p[i]; s += c === '%' ? '[\\s\\S]*' : c === '_' ? '[\\s\\S]' : c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+    return new RegExp(s + '$', 'i');
+  }
+  function fold(s) { return String(s).normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+  function hasAgg(e) {
+    if (!e || typeof e !== 'object') return false;
+    if (e.fn && AGG[e.fn]) return true;
+    for (var k in e) { var v = e[k]; if (Array.isArray(v)) { for (var i = 0; i < v.length; i++) if (Array.isArray(v[i]) ? v[i].some(hasAgg) : hasAgg(v[i])) return true; } else if (v && typeof v === 'object' && hasAgg(v)) return true; }
+    return false;
+  }
+  function exprText(e) {
+    if (!e) return '';
+    if ('lit' in e) return e.lit === null ? 'NULL' : typeof e.lit === 'string' ? "'" + e.lit + "'" : String(e.lit);
+    if (e.col) return (e.table ? e.table + '.' : '') + e.col;
+    if (e.fn) return e.fn + '(' + (e.star ? '*' : (e.distinct ? 'DISTINCT ' : '') + e.args.map(exprText).join(', ')) + ')';
+    switch (e.op) {
+      case 'NOT': return 'NOT ' + exprText(e.e);
+      case 'NEG': return '-' + exprText(e.e);
+      case 'ISNULL': return exprText(e.e) + ' IS ' + (e.not ? 'NOT ' : '') + 'NULL';
+      case 'IN': return exprText(e.e) + (e.not ? ' NOT' : '') + ' IN (' + e.list.map(exprText).join(', ') + ')';
+      case 'BETWEEN': return exprText(e.e) + (e.not ? ' NOT' : '') + ' BETWEEN ' + exprText(e.a) + ' AND ' + exprText(e.b);
+      case 'LIKE': return exprText(e.l) + (e.not ? ' NOT' : '') + ' LIKE ' + exprText(e.r);
+      case 'CASE': return 'CASE … END';
+      default: return exprText(e.l) + ' ' + e.op + ' ' + exprText(e.r);
+    }
+  }
+
+  function Env(db, defs, row, group, phase, outAlias) {
+    this.db = db; this.defs = defs; this.row = row; this.group = group; this.phase = phase; this.out = outAlias || null;
+  }
+  Env.prototype.withRow = function (r) { var e = new Env(this.db, this.defs, r, null, this.phase, this.out); e.aliases = this.aliases; return e; };
+
+  function resolve(env, e) {
+    var defs = env.defs, row = env.row, keys = Object.keys(defs);
+    if (e.table) {
+      var key = null;
+      for (var i = 0; i < keys.length; i++) if (low(keys[i]) === low(e.table)) key = keys[i];
+      if (!key) throw SqlError('No existe la tabla o alias «' + e.table + '» en esta consulta. Las tablas de esta consulta son: ' + keys.join(', ') + '.');
+      var td = defs[key], col = colOf(td, e.col);
+      if (!col) throw SqlError('La tabla ' + td.name + ' no tiene la columna «' + e.col + '». Sus columnas son: ' + td.cols.map(function (c) { return c.name; }).join(', ') + '.');
+      return row && row[key] ? row[key][col.name] : null;
+    }
+    var found = [];
+    keys.forEach(function (k) { var c = colOf(defs[k], e.col); if (c) found.push([k, c.name]); });
+    if (found.length === 1) { var f = found[0]; return row && row[f[0]] ? row[f[0]][f[1]] : null; }
+    if (found.length > 1) throw SqlError('La columna «' + e.col + '» es ambigua: está en ' + found.map(function (f) { return f[0]; }).join(' y ') + '. Escribe ' + found[0][0] + '.' + e.col + ' para decir cuál.');
+    if (env.out && env.out.hasOwnProperty(low(e.col))) return env.out[low(e.col)];
+    var msg = 'No existe la columna «' + e.col + '».';
+    var all = []; keys.forEach(function (k) { defs[k].cols.forEach(function (c) { all.push(c.name); }); });
+    if (env.phase === 'WHERE' && env.aliases && env.aliases.indexOf(low(e.col)) >= 0)
+      msg += ' «' + e.col + '» es un alias del SELECT, y WHERE se ejecuta antes que SELECT, así que todavía no lo conoce. Repite la expresión en el WHERE o usa HAVING.';
+    else if (all.length) msg += ' Las columnas disponibles son: ' + all.join(', ') + '.';
+    else msg += ' ¿Te faltó el FROM?';
+    throw SqlError(msg);
+  }
+  function colOf(td, name) { for (var i = 0; i < td.cols.length; i++) if (low(td.cols[i].name) === low(name)) return td.cols[i]; return null; }
+
+  function ev(e, env) {
+    if ('lit' in e) return e.lit;
+    if (e.col) return resolve(env, e);
+    if (e.fn) return evFn(e, env);
+    var a, b;
+    switch (e.op) {
+      case 'OR': a = tri(ev(e.l, env)); if (a === 1) return 1; b = tri(ev(e.r, env)); if (b === 1) return 1; return a === null || b === null ? null : 0;
+      case 'AND': a = tri(ev(e.l, env)); if (a === 0) return 0; b = tri(ev(e.r, env)); if (b === 0) return 0; return a === null || b === null ? null : 1;
+      case 'NOT': a = tri(ev(e.e, env)); return a === null ? null : 1 - a;
+      case 'NEG': a = ev(e.e, env); return a === null ? null : -toNum(a);
+      case 'ISNULL': a = ev(e.e, env); return (a === null) !== !!e.not ? 1 : 0;
+      case 'IN':
+        a = ev(e.e, env); if (a === null) return null;
+        var hit = 0, sawNull = false;
+        e.list.forEach(function (x) { var v = ev(x, env); if (v === null) sawNull = true; else if (cmp(a, v) === 0) hit = 1; });
+        if (!hit && sawNull) return null;
+        return e.not ? 1 - hit : hit;
+      case 'BETWEEN':
+        a = ev(e.e, env); var lo = ev(e.a, env), hi = ev(e.b, env);
+        if (a === null || lo === null || hi === null) return null;
+        var r = cmp(a, lo) >= 0 && cmp(a, hi) <= 0 ? 1 : 0; return e.not ? 1 - r : r;
+      case 'LIKE':
+        a = ev(e.l, env); b = ev(e.r, env); if (a === null || b === null) return null;
+        var m = likeRx(fold(b)).test(fold(a)) ? 1 : 0; return e.not ? 1 - m : m;
+      case 'CASE':
+        var base = e.base ? ev(e.base, env) : undefined;
+        for (var i = 0; i < e.whens.length; i++) {
+          var w = ev(e.whens[i][0], env);
+          if (e.base ? (base !== null && w !== null && cmp(base, w) === 0) : truthy(w)) return ev(e.whens[i][1], env);
+        }
+        return e.els ? ev(e.els, env) : null;
+    }
+    a = ev(e.l, env); b = ev(e.r, env);
+    switch (e.op) {
+      case '=': case '<>': case '<': case '>': case '<=': case '>=':
+        var c = cmp(a, b); if (c === null) return null;
+        return ({ '=': c === 0, '<>': c !== 0, '<': c < 0, '>': c > 0, '<=': c <= 0, '>=': c >= 0 })[e.op] ? 1 : 0;
+      case '||': return a === null || b === null ? null : String(a) + String(b);
+    }
+    if (a === null || b === null) return null;
+    a = toNum(a); b = toNum(b);
+    switch (e.op) {
+      case '+': return a + b;
+      case '-': return a - b;
+      case '*': return a * b;
+      case '/': return b === 0 ? null : a / b;
+      case 'DIV': return b === 0 ? null : Math.trunc(a / b);
+      case '%': return b === 0 ? null : a % b;
+    }
+    throw SqlError('Operador desconocido ' + e.op);
+  }
+  function round(x, n) { var p = Math.pow(10, n || 0); return Math.round((x + (x >= 0 ? 1e-9 : -1e-9)) * p) / p; }
+  function evFn(e, env) {
+    var f = e.fn;
+    if (AGG[f]) {
+      if (!env.group) {
+        if (env.phase === 'WHERE') throw SqlError(f + '() no se puede usar en WHERE, porque WHERE revisa fila por fila y todavía no hay grupos. Para filtrar por un ' + f + '() usa HAVING después de GROUP BY.');
+        throw SqlError(f + '() solo se puede usar en SELECT, HAVING u ORDER BY.');
+      }
+      if (e.star) { if (f !== 'COUNT') throw SqlError('Solo COUNT acepta el asterisco: COUNT(*).'); return env.group.length; }
+      if (e.args.length !== 1) throw SqlError(f + '() recibe una sola columna o expresión.');
+      var vals = [];
+      env.group.forEach(function (r) { var v = ev(e.args[0], env.withRow(r)); if (v !== null) vals.push(v); });
+      if (e.distinct) { var seen = {}; vals = vals.filter(function (v) { var k = typeof v === 'string' ? 's' + fold(v).toLowerCase() : 'n' + v; if (seen[k]) return false; seen[k] = 1; return true; }); }
+      switch (f) {
+        case 'COUNT': return vals.length;
+        case 'SUM': return vals.length ? vals.reduce(function (s, v) { return s + toNum(v); }, 0) : null;
+        case 'AVG': return vals.length ? vals.reduce(function (s, v) { return s + toNum(v); }, 0) / vals.length : null;
+        case 'MIN': return vals.length ? vals.reduce(function (m, v) { return cmp(v, m) < 0 ? v : m; }) : null;
+        case 'MAX': return vals.length ? vals.reduce(function (m, v) { return cmp(v, m) > 0 ? v : m; }) : null;
+      }
+    }
+    var args = e.args.map(function (x) { return ev(x, env); });
+    function need(n, m) { if (args.length < n || args.length > (m || n)) throw SqlError(f + '() recibe ' + (m && m !== n ? 'entre ' + n + ' y ' + m : n) + ' valor(es).'); }
+    switch (f) {
+      case 'ROUND': need(1, 2); return args[0] === null ? null : round(toNum(args[0]), args[1] ? toNum(args[1]) : 0);
+      case 'ABS': need(1); return args[0] === null ? null : Math.abs(toNum(args[0]));
+      case 'UPPER': case 'UCASE': need(1); return args[0] === null ? null : String(args[0]).toUpperCase();
+      case 'LOWER': case 'LCASE': need(1); return args[0] === null ? null : String(args[0]).toLowerCase();
+      case 'LENGTH': case 'CHAR_LENGTH': need(1); return args[0] === null ? null : String(args[0]).length;
+      case 'COALESCE': case 'IFNULL': for (var i = 0; i < args.length; i++) if (args[i] !== null) return args[i]; return null;
+      case 'CONCAT': return args.some(function (v) { return v === null; }) ? null : args.join('');
+      case 'SUBSTR': case 'SUBSTRING': need(2, 3); if (args[0] === null) return null; var s = String(args[0]), st = toNum(args[1]); return s.substr(st > 0 ? st - 1 : Math.max(0, s.length + st), args.length > 2 ? toNum(args[2]) : undefined);
+      case 'IF': need(3); return truthy(args[0]) ? args[1] : args[2];
+      case 'GREATEST': return args.reduce(function (m, v) { return m === null || v === null ? null : cmp(v, m) > 0 ? v : m; });
+      case 'LEAST': return args.reduce(function (m, v) { return m === null || v === null ? null : cmp(v, m) < 0 ? v : m; });
+      case 'CURDATE': case 'CURRENT_DATE': var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+    }
+    throw SqlError('No conozco la función ' + f + '(). Puedes usar COUNT, SUM, AVG, MIN, MAX, ROUND, UPPER, LOWER, LENGTH, CONCAT, COALESCE e IF.');
+  }
+
+  /* ---------- 4. La base de datos ---------- */
+  function DB() { this.tables = {}; this.order = []; }
+  DB.prototype.create = function (name, cols) {
+    var td = { name: name, cols: cols, rows: [], seq: 0 };
+    this.tables[low(name)] = td; this.order.push(td); return td;
+  };
+  DB.prototype.table = function (name) {
+    var td = this.tables[low(name)];
+    if (!td) throw SqlError('No existe la tabla «' + name + '». Las tablas son: ' + this.order.map(function (t) { return t.name; }).join(', ') + '.');
+    return td;
+  };
+  DB.prototype.pk = function (td) { for (var i = 0; i < td.cols.length; i++) if (td.cols[i].pk) return td.cols[i]; return null; };
+  DB.prototype.findPk = function (td, v) {
+    var pk = this.pk(td); if (!pk) return null;
+    for (var i = 0; i < td.rows.length; i++) if (cmp(td.rows[i][pk.name], v) === 0) return td.rows[i];
+    return null;
+  };
+  DB.prototype.check = function (td, row, skip) {
+    var self = this;
+    td.cols.forEach(function (c) {
+      var v = row[c.name];
+      if (v === undefined) v = row[c.name] = null;
+      if (v === null) { if (c.notnull || c.pk) throw SqlError('La columna ' + td.name + '.' + c.name + ' no puede quedar vacía (NOT NULL).'); return; }
+      if (c.type === 'INT') {
+        var n = typeof v === 'number' ? v : (String(v).trim() !== '' && !isNaN(Number(v)) ? Number(v) : NaN);
+        if (isNaN(n)) throw SqlError('La columna ' + td.name + '.' + c.name + ' es de tipo INT (número entero) y le diste el texto «' + v + '». Los números van sin comillas.');
+        if (Math.round(n) !== n) throw SqlError('La columna ' + td.name + '.' + c.name + ' es de tipo INT y no acepta decimales (' + n + ').');
+        row[c.name] = n;
+      } else if (c.type === 'VARCHAR') {
+        row[c.name] = v = String(v);
+        if (c.len && v.length > c.len) throw SqlError('El texto para ' + td.name + '.' + c.name + ' tiene ' + v.length + ' caracteres y la columna es VARCHAR(' + c.len + ').');
+        if (c.values && c.values.indexOf(v) < 0) throw SqlError('En ' + td.name + '.' + c.name + ' solo se aceptan estos valores: ' + c.values.map(function (x) { return "'" + x + "'"; }).join(', ') + '.');
+      } else if (c.type === 'DATE') {
+        row[c.name] = v = String(v);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) throw SqlError('La fecha de ' + td.name + '.' + c.name + ' debe escribirse como texto con el formato \'AAAA-MM-DD\', por ejemplo \'2026-11-04\'.');
+      }
+      if (c.min !== undefined && row[c.name] < c.min) throw SqlError('La columna ' + td.name + '.' + c.name + ' no acepta valores menores que ' + c.min + '.');
+      if (c.max !== undefined && row[c.name] > c.max) throw SqlError('La columna ' + td.name + '.' + c.name + ' no acepta valores mayores que ' + c.max + '.');
+      if (c.fk) {
+        var ref = self.table(c.fk);
+        if (!self.findPk(ref, row[c.name])) throw SqlError('Clave foránea: no existe ningún registro con id = ' + row[c.name] + ' en la tabla ' + ref.name + '. La columna ' + td.name + '.' + c.name + ' debe apuntar a un id que exista.');
+      }
+    });
+    var pk = this.pk(td);
+    if (pk) td.rows.forEach(function (r) {
+      if (r !== skip && cmp(r[pk.name], row[pk.name]) === 0) throw SqlError('Ya existe una fila con ' + pk.name + ' = ' + row[pk.name] + ' en ' + td.name + '. La clave primaria no se puede repetir; si no escribes el id, la base de datos asigna el siguiente.');
+    });
+  };
+  DB.prototype.referencing = function (td, row) {
+    var pk = this.pk(td), out = [];
+    if (!pk) return out;
+    this.order.forEach(function (o) {
+      o.cols.forEach(function (c) {
+        if (c.fk && low(c.fk) === low(td.name)) {
+          var n = o.rows.filter(function (r) { return cmp(r[c.name], row[pk.name]) === 0; }).length;
+          if (n) out.push({ table: o.name, col: c.name, n: n });
+        }
+      });
+    });
+    return out;
+  };
+  DB.prototype.insertRow = function (name, obj) {
+    var td = this.table(name), pk = this.pk(td), row = {};
+    td.cols.forEach(function (c) { row[c.name] = obj[c.name] === undefined ? null : obj[c.name]; });
+    if (pk && pk.auto && row[pk.name] === null) row[pk.name] = td.seq + 1;
+    this.check(td, row);
+    if (pk && typeof row[pk.name] === 'number') td.seq = Math.max(td.seq, row[pk.name]);
+    td.rows.push(row); return row;
+  };
+
+  /* ---------- 5. Ejecutar sentencias ---------- */
+  DB.prototype.run = function (sqlText, opts) {
+    opts = opts || {};
+    var stmts = new Parser(tokenize(sqlText)).script(), out = [];
+    var backup = this.snapshot();
+    try {
+      for (var i = 0; i < stmts.length; i++) {
+        var st = stmts[i], r;
+        if (st.type === 'select') r = this.select(st);
+        else if (st.type === 'insert') r = this.insert(st);
+        else if (st.type === 'update') r = this.update(st, opts);
+        else r = this.del(st, opts);
+        r.text = sqlText.slice(st.start, st.end).trim(); r.type = st.type;
+        out.push(r);
+      }
+    } catch (err) { this.restore(backup); err.partial = out; throw err; }
+    return out;
+  };
+  DB.prototype.snapshot = function () { return this.order.map(function (t) { return { t: t, rows: t.rows.map(function (r) { return Object.assign({}, r); }), seq: t.seq }; }); };
+  DB.prototype.restore = function (s) { s.forEach(function (x) { x.t.rows = x.rows; x.t.seq = x.seq; }); };
+
+  DB.prototype.select = function (s) {
+    var self = this, steps = [], defs = {}, rows;
+    function step(clause, detail, n, unit, explain) { steps.push({ clause: clause, detail: detail, n: n, unit: unit || 'filas', explain: explain }); }
+    var aliases = s.cols.filter(function (c) { return c.alias; }).map(function (c) { return low(c.alias); });
+    if (s.from) {
+      var td = this.table(s.from.table), a = s.from.alias || td.name;
+      defs[a] = td;
+      rows = td.rows.map(function (r) { var o = {}; o[a] = r; return o; });
+      step('FROM', td.name + (s.from.alias ? ' ' + s.from.alias : ''), rows.length, 'filas', 'Toma todas las filas de la tabla ' + td.name + '.');
+      s.joins.forEach(function (j) {
+        var jt = self.table(j.table), ja = j.alias || jt.name;
+        if (defs[ja]) throw SqlError('El nombre «' + ja + '» se usa dos veces en el FROM. Ponle un alias distinto a cada tabla.');
+        defs[ja] = jt;
+        var next = [], env = new Env(self, defs, null, null, 'ON');
+        rows.forEach(function (r) {
+          var matched = false;
+          jt.rows.forEach(function (r2) {
+            var o = Object.assign({}, r); o[ja] = r2;
+            if (j.type === 'CROSS' || truthy(ev(j.on, env.withRow(o)))) { next.push(o); matched = true; }
+          });
+          if (!matched && j.type === 'LEFT') { var o2 = Object.assign({}, r); o2[ja] = null; next.push(o2); }
+        });
+        rows = next;
+        step(j.type === 'CROSS' ? 'CROSS JOIN' : j.type + ' JOIN', jt.name + (j.alias ? ' ' + j.alias : '') + (j.on ? ' ON ' + exprText(j.on) : ''), rows.length, 'filas',
+          j.type === 'LEFT' ? 'Une cada fila con su pareja en ' + jt.name + '; las que no tienen pareja se quedan con NULL.' :
+          j.type === 'CROSS' ? 'Combina cada fila con todas las filas de ' + jt.name + '.' : 'Une cada fila con las filas de ' + jt.name + ' que cumplen la condición ON; las que no tienen pareja desaparecen.');
+      });
+    } else rows = [{}];
+    if (s.where) {
+      if (hasAgg(s.where)) throw SqlError('Las funciones como COUNT, SUM o AVG no se pueden usar en WHERE, porque WHERE revisa fila por fila y todavía no hay grupos. Usa HAVING después de GROUP BY.');
+      var wenv = new Env(this, defs, null, null, 'WHERE'); wenv.aliases = aliases;
+      var before = rows.length;
+      rows = rows.filter(function (r) { return truthy(ev(s.where, wenv.withRow(r))); });
+      step('WHERE', exprText(s.where), rows.length, 'filas', 'Revisa la condición fila por fila: quedan ' + rows.length + ' de ' + before + '.');
+    }
+    var grouped = s.group.length > 0 || !!s.having || s.cols.some(function (c) { return c.e && hasAgg(c.e); }) || s.order.some(function (o) { return hasAgg(o.e); });
+    var units;
+    if (grouped) {
+      var groups = [], idx = {};
+      if (s.group.length) {
+        var genv = new Env(this, defs, null, null, 'GROUP BY');
+        rows.forEach(function (r) {
+          var key = JSON.stringify(s.group.map(function (g) { var v = ev(g, genv.withRow(r)); return typeof v === 'string' ? fold(v).toLowerCase() : v; }));
+          if (!idx[key]) { idx[key] = []; groups.push(idx[key]); }
+          idx[key].push(r);
+        });
+        step('GROUP BY', s.group.map(exprText).join(', '), groups.length, 'grupos', 'Junta las filas que tienen el mismo valor en ' + s.group.map(exprText).join(', ') + ': salen ' + groups.length + ' grupos.');
+      } else { groups = [rows]; step('Agrupar todo', 'sin GROUP BY', 1, 'grupo', 'Como hay una función de resumen sin GROUP BY, todas las filas forman un solo grupo.'); }
+      units = groups.map(function (g) { return { row: g[0] || null, group: g }; });
+    } else units = rows.map(function (r) { return { row: r, group: null }; });
+
+    // SELECT: calcular las columnas de salida
+    var cols = [], names = [];
+    s.cols.forEach(function (c) {
+      if (c.star) {
+        var ks = Object.keys(defs);
+        if (c.table) { ks = ks.filter(function (k) { return low(k) === low(c.table); }); if (!ks.length) throw SqlError('No existe la tabla o alias «' + c.table + '» en esta consulta.'); }
+        if (!ks.length) throw SqlError('SELECT * necesita un FROM con una tabla.');
+        ks.forEach(function (k) { defs[k].cols.forEach(function (col) { cols.push({ e: { col: col.name, table: k } }); names.push(col.name); }); });
+      } else { cols.push(c); names.push(c.alias || exprText(c.e)); }
+    });
+    function project(u, phase) {
+      var env = new Env(self, defs, u.row, u.group, phase), vals = [], out = {};
+      cols.forEach(function (c, i) { var v = ev(c.e, env); vals.push(v); out[low(names[i])] = v; });
+      return { vals: vals, out: out };
+    }
+    if (s.having) {
+      var hb = units.length;
+      units = units.filter(function (u) {
+        var p = project(u, 'HAVING'), env = new Env(self, defs, u.row, u.group, 'HAVING', p.out);
+        return truthy(ev(s.having, env));
+      });
+      step('HAVING', exprText(s.having), units.length, 'grupos', 'Revisa la condición grupo por grupo: quedan ' + units.length + ' de ' + hb + '.');
+    }
+    var res = units.map(function (u) { var p = project(u, 'SELECT'); return { vals: p.vals, out: p.out, u: u }; });
+    step('SELECT', names.join(', '), res.length, 'filas', 'Calcula las ' + names.length + ' columnas que pediste' + (grouped ? ' para cada grupo.' : '.'));
+    if (s.distinct) {
+      var seen = {};
+      res = res.filter(function (r) { var k = JSON.stringify(r.vals.map(function (v) { return typeof v === 'string' ? fold(v).toLowerCase() : v; })); if (seen[k]) return false; seen[k] = 1; return true; });
+      step('DISTINCT', '', res.length, 'filas', 'Quita las filas repetidas.');
+    }
+    if (s.order.length) {
+      res.forEach(function (r) {
+        r.keys = s.order.map(function (o) {
+          var e = o.e;
+          if ('lit' in e && typeof e.lit === 'number') {
+            if (e.lit < 1 || e.lit > names.length) throw SqlError('ORDER BY ' + e.lit + ': solo hay ' + names.length + ' columnas en el resultado.');
+            return r.vals[e.lit - 1];
+          }
+          if (e.col && !e.table && r.out.hasOwnProperty(low(e.col))) {
+            var amb = Object.keys(defs).some(function (k) { return colOf(defs[k], e.col); });
+            if (!amb || aliases.indexOf(low(e.col)) >= 0 || grouped) return r.out[low(e.col)];
+          }
+          return ev(e, new Env(self, defs, r.u.row, r.u.group, 'ORDER BY', r.out));
+        });
+      });
+      res.sort(function (a, b) {
+        for (var i = 0; i < s.order.length; i++) {
+          var x = a.keys[i], y = b.keys[i], c;
+          if (x === null && y === null) c = 0; else if (x === null) c = -1; else if (y === null) c = 1; else c = cmp(x, y);
+          if (c) return s.order[i].desc ? -c : c;
+        }
+        return 0;
+      });
+      step('ORDER BY', s.order.map(function (o) { return exprText(o.e) + (o.desc ? ' DESC' : ''); }).join(', '), res.length, 'filas', 'Ordena el resultado' + (s.order[0].desc ? ' de mayor a menor.' : ' de menor a mayor.'));
+    }
+    if (s.limit !== null || s.offset) {
+      var lb = res.length;
+      res = res.slice(s.offset, s.limit === null ? undefined : s.offset + s.limit);
+      step('LIMIT', (s.offset ? s.offset + ', ' : '') + (s.limit === null ? '' : s.limit), res.length, 'filas', 'Se queda con ' + res.length + ' de ' + lb + ' filas.');
+    }
+    return { columns: names, rows: res.map(function (r) { return r.vals; }), steps: steps };
+  };
+
+  function oneTableDefs(td) { var d = {}; d[td.name] = td; return d; }
+  DB.prototype.insert = function (s) {
+    var td = this.table(s.table), self = this, cols;
+    if (s.cols) cols = s.cols.map(function (c) { var col = colOf(td, c); if (!col) throw SqlError('La tabla ' + td.name + ' no tiene la columna «' + c + '». Sus columnas son: ' + td.cols.map(function (x) { return x.name; }).join(', ') + '.'); return col.name; });
+    else cols = td.cols.map(function (c) { return c.name; });
+    var env = new Env(this, {}, {}, null, 'VALUES'), ids = [];
+    s.rows.forEach(function (vals, k) {
+      if (vals.length !== cols.length)
+        throw SqlError('En la fila ' + (k + 1) + ' de VALUES diste ' + vals.length + ' valor(es) para ' + cols.length + ' columna(s)' + (s.cols ? ' (' + cols.join(', ') + ')' : ' (como no nombraste columnas, se esperan todas: ' + cols.join(', ') + ')') + '.');
+      var obj = {};
+      cols.forEach(function (c, i) { obj[c] = ev(vals[i], env); });
+      var row = self.insertRow(td.name, obj), pk = self.pk(td);
+      if (pk) ids.push(row[pk.name]);
+    });
+    var pk = this.pk(td);
+    return { changed: s.rows.length, table: td.name, ids: ids,
+      steps: [{ clause: 'INSERT INTO', detail: td.name + ' (' + cols.join(', ') + ')', n: s.rows.length, unit: 'filas nuevas', explain: 'Revisa tipos de dato, clave primaria y claves foráneas antes de guardar.' + (pk && pk.auto && cols.indexOf(pk.name) < 0 ? ' El ' + pk.name + ' lo asigna la base de datos: ' + ids.join(', ') + '.' : '') }],
+      message: s.rows.length + ' fila(s) agregada(s) a ' + td.name + '.' };
+  };
+  DB.prototype.where = function (td, w) {
+    var env = new Env(this, oneTableDefs(td), null, null, 'WHERE');
+    if (w && hasAgg(w)) throw SqlError('No se pueden usar COUNT, SUM o AVG en el WHERE.');
+    return td.rows.filter(function (r) { var o = {}; o[td.name] = r; return !w || truthy(ev(w, env.withRow(o))); });
+  };
+  DB.prototype.update = function (s, opts) {
+    var td = this.table(s.table), self = this, pk = this.pk(td);
+    if (!s.where && !opts.unsafe) throw SqlError('Modo seguro (como en MySQL Workbench): un UPDATE sin WHERE cambiaría las ' + td.rows.length + ' filas de ' + td.name + '. Agrega un WHERE que diga cuáles filas cambiar.');
+    var sets = s.sets.map(function (x) { var c = colOf(td, x.col); if (!c) throw SqlError('La tabla ' + td.name + ' no tiene la columna «' + x.col + '».'); if (c.pk) throw SqlError('No cambies ' + td.name + '.' + c.name + ': es la clave primaria y otras tablas pueden apuntar a ella.'); return { c: c, e: x.e }; });
+    var hits = this.where(td, s.where), env = new Env(this, oneTableDefs(td), null, null, 'SET');
+    hits.forEach(function (r) {
+      var o = {}; o[td.name] = r;
+      var nr = Object.assign({}, r);
+      sets.forEach(function (x) { nr[x.c.name] = ev(x.e, env.withRow(o)); });
+      self.check(td, nr, r);
+      Object.assign(r, nr);
+    });
+    return { changed: hits.length, table: td.name, message: hits.length + ' fila(s) cambiada(s) en ' + td.name + '.',
+      steps: [{ clause: 'UPDATE', detail: td.name, n: td.rows.length, unit: 'filas', explain: 'Recorre la tabla ' + td.name + '.' },
+        { clause: 'WHERE', detail: s.where ? exprText(s.where) : '(todas)', n: hits.length, unit: 'filas', explain: 'Escoge las filas que se van a cambiar.' },
+        { clause: 'SET', detail: s.sets.map(function (x) { return x.col + ' = ' + exprText(x.e); }).join(', '), n: hits.length, unit: 'filas cambiadas', explain: 'Escribe los valores nuevos.' }] };
+  };
+  DB.prototype.del = function (s, opts) {
+    var td = this.table(s.table), self = this, pk = this.pk(td);
+    if (!s.where && !opts.unsafe) throw SqlError('Modo seguro (como en MySQL Workbench): un DELETE sin WHERE borraría las ' + td.rows.length + ' filas de ' + td.name + '. Agrega un WHERE que diga cuáles filas borrar.');
+    var hits = this.where(td, s.where);
+    hits.forEach(function (r) {
+      var refs = self.referencing(td, r);
+      if (refs.length) throw SqlError('No se puede borrar el registro con ' + pk.name + ' = ' + r[pk.name] + ' de ' + td.name + ': hay ' + refs.map(function (x) { return x.n + ' fila(s) en ' + x.table + '.' + x.col; }).join(' y ') + ' que apuntan a él (clave foránea). Borra primero esas filas.');
+    });
+    td.rows = td.rows.filter(function (r) { return hits.indexOf(r) < 0; });
+    return { changed: hits.length, table: td.name, message: hits.length + ' fila(s) borrada(s) de ' + td.name + '.',
+      steps: [{ clause: 'DELETE FROM', detail: td.name, n: td.rows.length + hits.length, unit: 'filas', explain: 'Recorre la tabla ' + td.name + '.' },
+        { clause: 'WHERE', detail: s.where ? exprText(s.where) : '(todas)', n: hits.length, unit: 'filas borradas', explain: 'Revisa que ninguna otra tabla apunte a las filas antes de borrarlas.' }] };
+  };
+
+  return { DB: DB, tokenize: tokenize, Parser: Parser, SqlError: SqlError };
+})();
+
+
+function crearBaseArcade(DATA, MiniSQL) {
+  var db = new MiniSQL.DB();
+  db.create('jugadores', [
+    { name: 'id', type: 'INT', pk: true, auto: true },
+    { name: 'nombre', type: 'VARCHAR', len: 40, notnull: true },
+    { name: 'curso', type: 'INT', min: 6, max: 11 }]);
+  db.create('juegos', [
+    { name: 'id', type: 'INT', pk: true, auto: true },
+    { name: 'nombre', type: 'VARCHAR', len: 30, notnull: true },
+    { name: 'categoria', type: 'VARCHAR', len: 20 }]);
+  db.create('partidas', [
+    { name: 'id', type: 'INT', pk: true, auto: true },
+    { name: 'jugador_id', type: 'INT', notnull: true, fk: 'jugadores' },
+    { name: 'juego_id', type: 'INT', notnull: true, fk: 'juegos' },
+    { name: 'puntaje', type: 'INT', min: 0 },
+    { name: 'duracion_s', type: 'INT', min: 0 },
+    { name: 'resultado', type: 'VARCHAR', len: 10, values: ['gano', 'perdio', 'empate'] },
+    { name: 'piloto', type: 'VARCHAR', len: 10, values: ['humano', 'ia'] },
+    { name: 'fecha', type: 'DATE' }]);
+  DATA.jugadores.forEach(function (r) { db.insertRow('jugadores', { id: r[0], nombre: r[1], curso: r[2] }); });
+  DATA.juegos.forEach(function (r) { db.insertRow('juegos', { id: r[0], nombre: r[1], categoria: r[2] }); });
+  DATA.partidas.forEach(function (r) { db.insertRow('partidas', { jugador_id: r[0], juego_id: r[1], puntaje: r[2], duracion_s: r[3], resultado: r[4], piloto: r[5], fecha: r[6] }); });
+  return db;
+}
+
+
+var DATA = {"jugadores": [[1, "Valentina", 9], [2, "Santiago", 10], [3, "Mariana", 11], [4, "Samuel", 9], [5, "Isabella", 10], [6, "Matías", 11], [7, "Sofía", 10], [8, "Juan José", 9]], "juegos": [[1, "Culebrita", "arcade"], [2, "Rompeladrillos", "arcade"], [3, "Triqui", "tablero"]], "partidas": [[4, 1, 50, 41, "perdio", "humano", "2026-10-01"], [6, 2, 180, 72, "perdio", "humano", "2026-10-01"], [1, 1, 30, 24, "perdio", "humano", "2026-10-02"], [4, 2, 90, 47, "perdio", "humano", "2026-10-02"], [1, 3, 50, 48, "empate", "humano", "2026-10-03"], [2, 2, 160, 73, "perdio", "humano", "2026-10-04"], [2, 3, 50, 47, "empate", "humano", "2026-10-04"], [3, 1, 90, 45, "perdio", "humano", "2026-10-04"], [5, 3, 50, 40, "empate", "humano", "2026-10-04"], [3, 1, 210, 90, "perdio", "ia", "2026-10-04"], [3, 1, 210, 90, "perdio", "ia", "2026-10-04"], [4, 2, 150, 65, "perdio", "humano", "2026-10-05"], [5, 2, 160, 63, "perdio", "humano", "2026-10-05"], [7, 3, 50, 31, "empate", "humano", "2026-10-05"], [6, 2, 310, 77, "perdio", "ia", "2026-10-05"], [1, 1, 50, 33, "perdio", "humano", "2026-10-06"], [1, 2, 100, 45, "perdio", "humano", "2026-10-06"], [1, 3, 50, 42, "empate", "humano", "2026-10-06"], [2, 1, 60, 42, "perdio", "humano", "2026-10-06"], [3, 3, 100, 31, "gano", "humano", "2026-10-06"], [6, 1, 80, 56, "perdio", "humano", "2026-10-06"], [6, 2, 170, 67, "perdio", "humano", "2026-10-06"], [6, 3, 100, 20, "gano", "humano", "2026-10-06"], [7, 1, 100, 69, "perdio", "humano", "2026-10-06"], [3, 1, 40, 31, "perdio", "humano", "2026-10-07"], [3, 2, 190, 77, "perdio", "humano", "2026-10-07"], [4, 1, 40, 35, "perdio", "humano", "2026-10-07"], [4, 3, 0, 43, "perdio", "humano", "2026-10-07"], [5, 1, 90, 69, "perdio", "humano", "2026-10-07"], [5, 2, 260, 95, "perdio", "humano", "2026-10-07"], [7, 2, 220, 65, "perdio", "humano", "2026-10-07"], [2, 1, 50, 37, "perdio", "humano", "2026-10-08"], [2, 2, 130, 46, "perdio", "humano", "2026-10-08"], [5, 3, 0, 32, "perdio", "humano", "2026-10-08"], [6, 1, 110, 55, "perdio", "humano", "2026-10-08"], [7, 3, 50, 45, "empate", "humano", "2026-10-08"], [6, 2, 350, 85, "perdio", "ia", "2026-10-08"], [2, 3, 0, 38, "perdio", "humano", "2026-10-09"], [3, 3, 0, 29, "perdio", "humano", "2026-10-09"], [1, 1, 60, 49, "perdio", "humano", "2026-10-10"], [1, 2, 70, 43, "perdio", "humano", "2026-10-10"], [1, 3, 0, 19, "perdio", "humano", "2026-10-10"], [6, 2, 240, 86, "perdio", "humano", "2026-10-10"], [7, 1, 120, 87, "perdio", "humano", "2026-10-10"], [7, 2, 230, 79, "perdio", "humano", "2026-10-10"], [3, 2, 260, 109, "perdio", "humano", "2026-10-11"], [4, 1, 60, 41, "perdio", "humano", "2026-10-11"], [4, 2, 160, 74, "perdio", "humano", "2026-10-11"], [4, 3, 50, 58, "empate", "humano", "2026-10-11"], [5, 1, 130, 70, "perdio", "humano", "2026-10-11"], [5, 2, 270, 87, "perdio", "humano", "2026-10-11"], [6, 3, 0, 44, "perdio", "humano", "2026-10-11"], [2, 3, 0, 56, "perdio", "humano", "2026-10-12"], [3, 3, 0, 43, "perdio", "humano", "2026-10-12"], [6, 1, 70, 37, "perdio", "humano", "2026-10-12"], [2, 1, 70, 44, "perdio", "humano", "2026-10-13"], [3, 1, 100, 50, "perdio", "humano", "2026-10-13"], [3, 2, 210, 68, "perdio", "humano", "2026-10-13"], [4, 2, 160, 56, "perdio", "humano", "2026-10-13"], [5, 1, 190, 96, "perdio", "humano", "2026-10-13"], [7, 1, 130, 81, "perdio", "humano", "2026-10-13"], [3, 1, 240, 102, "perdio", "ia", "2026-10-13"], [1, 2, 120, 47, "perdio", "humano", "2026-10-14"], [4, 1, 90, 52, "perdio", "humano", "2026-10-14"], [6, 3, 0, 58, "perdio", "humano", "2026-10-14"], [7, 2, 350, 137, "perdio", "humano", "2026-10-14"], [7, 3, 0, 59, "perdio", "humano", "2026-10-14"], [1, 1, 70, 50, "perdio", "humano", "2026-10-15"], [5, 2, 390, 146, "perdio", "humano", "2026-10-15"], [6, 2, 300, 122, "perdio", "humano", "2026-10-15"], [6, 2, 460, 107, "perdio", "ia", "2026-10-15"], [1, 3, 0, 55, "perdio", "humano", "2026-10-16"], [3, 1, 140, 77, "perdio", "humano", "2026-10-16"], [3, 3, 100, 60, "gano", "humano", "2026-10-16"], [4, 3, 0, 21, "perdio", "humano", "2026-10-16"], [7, 3, 100, 43, "gano", "humano", "2026-10-16"], [3, 1, 190, 82, "perdio", "ia", "2026-10-16"], [4, 2, 180, 56, "perdio", "humano", "2026-10-17"], [6, 3, 50, 23, "empate", "humano", "2026-10-17"], [7, 1, 130, 89, "perdio", "humano", "2026-10-17"], [1, 2, 160, 60, "perdio", "humano", "2026-10-18"], [2, 1, 70, 51, "perdio", "humano", "2026-10-18"], [2, 3, 50, 30, "empate", "humano", "2026-10-18"], [3, 2, 170, 76, "perdio", "humano", "2026-10-18"], [5, 1, 160, 80, "perdio", "humano", "2026-10-19"], [5, 2, 290, 84, "perdio", "humano", "2026-10-19"], [6, 2, 380, 100, "perdio", "humano", "2026-10-19"], [7, 2, 220, 96, "perdio", "humano", "2026-10-19"], [3, 1, 250, 106, "gano", "ia", "2026-10-19"], [1, 3, 50, 48, "empate", "humano", "2026-10-20"], [3, 1, 120, 74, "perdio", "humano", "2026-10-20"], [3, 1, 240, 102, "perdio", "ia", "2026-10-20"], [2, 1, 80, 52, "perdio", "humano", "2026-10-22"], [2, 3, 50, 52, "empate", "humano", "2026-10-22"], [6, 2, 420, 99, "perdio", "ia", "2026-10-22"], [1, 3, 50, 53, "empate", "humano", "2026-10-23"], [3, 1, 140, 104, "perdio", "humano", "2026-10-23"], [5, 1, 130, 92, "perdio", "humano", "2026-10-23"], [6, 2, 380, 106, "perdio", "humano", "2026-10-23"], [2, 3, 0, 33, "perdio", "humano", "2026-10-24"], [7, 2, 300, 85, "perdio", "humano", "2026-10-24"], [6, 2, 370, 89, "perdio", "ia", "2026-10-24"], [2, 1, 100, 52, "perdio", "humano", "2026-10-26"], [5, 1, 150, 102, "perdio", "humano", "2026-10-27"], [7, 2, 330, 100, "perdio", "humano", "2026-10-28"]]};
+(function () {
+'use strict';
+var $ = function (id) { return document.getElementById(id); };
+var cv = $('game'), ctx = cv.getContext('2d');
+var W = 480, H = 480;
+var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+function today() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function sqlStr(s) { return "'" + String(s).replace(/'/g, "''") + "'"; }
+
+/* =====================================================================
+   MODELO: la base de datos y el estado de cada juego
+   ===================================================================== */
+var db;
+function crearBase() {
+  db = crearBaseArcade(DATA, MiniSQL);
+  db.table('jugadores').seq = 100;      // los registros nuevos empiezan en 101 y 1001
+  db.table('partidas').seq = 1000;      // para no chocar con los datos del cuaderno
+}
+crearBase();
+var GAME_ID = { culebrita: 1, ladrillos: 2, triqui: 3 };
+var GAME_COLOR = { culebrita: '#5BE3B5', ladrillos: '#FF8A5C', triqui: '#7CC4FF' };
+
+var Modelo = { juego: 'culebrita', jugadorId: null, culebrita: null, ladrillos: null, triqui: null };
+var counters = { loops: 0, cond: {}, extra: {} };
+var lastLines = {}, ctrlLog = [], frames = 0, lastDrawMs = 0, inserts = 0;
+
+function resetCounters() { counters = { loops: 0, cond: {}, extra: {} }; lastLines = {}; }
+function hit(n) { lastLines[n] = 1; }
+function cond(k, v) { var c = counters.cond[k] || (counters.cond[k] = { t: 0, f: 0 }); if (v) c.t++; else c.f++; return v; }
+
+/* ---------- Culebrita ---------- */
+var N = 20, CELL = W / N;
+var DIRS = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0] };
+function nuevaCulebrita() {
+  var m = { body: [{ x: 6, y: 10 }, { x: 5, y: 10 }, { x: 4, y: 10 }], dir: [1, 0], queue: [], food: null, puntaje: 0, galletas: 0,
+    estado: 'listo', ia: false, iaUsada: false, verBusqueda: true, path: [], explorados: 0, busqueda: '', t0: 0, acc: 0 };
+  m.food = celdaLibre(m);
+  return m;
+}
+function celdaLibre(m) {
+  var libres = [];
+  for (var x = 0; x < N; x++) for (var y = 0; y < N; y++) if (!m.body.some(function (b) { return b.x === x && b.y === y; })) libres.push({ x: x, y: y });
+  return libres[(Math.random() * libres.length) | 0];
+}
+function ocupada(m, x, y, sinCola) {
+  var n = m.body.length - (sinCola ? 1 : 0);
+  for (var i = 0; i < n; i++) if (m.body[i].x === x && m.body[i].y === y) return true;
+  return false;
+}
+function bfs(m) {
+  // Búsqueda en anchura: explora la cuadrícula por capas desde la cabeza hasta encontrar la galleta
+  var h = m.body[0], prev = {}, cola = [[h.x, h.y]], key = function (x, y) { return x + ',' + y; }, visit = {}, n = 0;
+  visit[key(h.x, h.y)] = 1;
+  while (cola.length) {
+    var c = cola.shift(); n++;
+    if (c[0] === m.food.x && c[1] === m.food.y) {
+      var path = [], k = key(c[0], c[1]);
+      while (prev[k]) { path.unshift(k.split(',').map(Number)); k = prev[k]; }
+      return { path: path, n: n };
+    }
+    [[0, -1], [1, 0], [0, 1], [-1, 0]].forEach(function (d) {
+      var x = c[0] + d[0], y = c[1] + d[1], kk = key(x, y);
+      if (x < 0 || y < 0 || x >= N || y >= N || visit[kk] || ocupada(m, x, y, true)) return;
+      visit[kk] = 1; prev[kk] = key(c[0], c[1]); cola.push([x, y]);
+    });
+  }
+  return { path: [], n: n };
+}
+function espacioLibre(m, x, y) {
+  var seen = {}, st = [[x, y]], n = 0;
+  while (st.length && n < 400) {
+    var c = st.pop(), k = c[0] + ',' + c[1];
+    if (seen[k] || c[0] < 0 || c[1] < 0 || c[0] >= N || c[1] >= N || ocupada(m, c[0], c[1], true)) continue;
+    seen[k] = 1; n++;
+    st.push([c[0] + 1, c[1]], [c[0] - 1, c[1]], [c[0], c[1] + 1], [c[0], c[1] - 1]);
+  }
+  return n;
+}
+function decidirIA(m) {
+  var r = bfs(m); m.explorados = r.n; m.path = r.path;
+  var h = m.body[0];
+  if (r.path.length) { m.busqueda = 'encontró un camino de ' + r.path.length + ' pasos'; return [r.path[0][0] - h.x, r.path[0][1] - h.y]; }
+  var best = null, bestN = -1;
+  [[0, -1], [1, 0], [0, 1], [-1, 0]].forEach(function (d) {
+    var x = h.x + d[0], y = h.y + d[1];
+    if (x < 0 || y < 0 || x >= N || y >= N || ocupada(m, x, y, true)) return;
+    var e = espacioLibre(m, x, y); if (e > bestN) { bestN = e; best = d; }
+  });
+  m.busqueda = best ? 'no hay camino: va hacia el espacio más grande (' + bestN + ' celdas)' : 'está encerrada';
+  return best || m.dir;
+}
+function pasoCulebrita(m) {
+  counters.loops++; lastLines = {}; hit(1);
+  hit(2);
+  if (m.ia) { m.dir = decidirIA(m); m.iaUsada = true; }
+  else if (m.queue.length) m.dir = m.queue.shift();
+  var h = m.body[0], nh = { x: h.x + m.dir[0], y: h.y + m.dir[1] };
+  hit(3);
+  var come = nh.x === m.food.x && nh.y === m.food.y;
+  hit(4);
+  if (cond('choque', nh.x < 0 || nh.y < 0 || nh.x >= N || nh.y >= N || ocupada(m, nh.x, nh.y, !come))) { hit(5); finPartida('perdio'); return; }
+  hit(6); m.body.unshift(nh);
+  hit(7);
+  if (cond('galleta', come)) {
+    hit(8); m.puntaje += 10; m.galletas++;
+    if (m.galletas >= 25) { finPartida('gano'); return; }
+    m.food = celdaLibre(m);
+  } else { hit(9); hit(10); m.body.pop(); }
+  hit(11);
+}
+
+/* ---------- Rompeladrillos ---------- */
+var BR = { cols: 8, rows: 6, w: 54, h: 18, gap: 4, top: 62, left: 10 };
+var BRICK_COLORS = ['#FF5C7A', '#FF8A3D', '#C4853A', '#B07CFF', '#4FD1C5', '#7CC4FF'];
+function nuevosLadrillos() {
+  var m = { paddle: { x: W / 2, w: 84, y: 448 }, ball: { x: W / 2, y: 430, vx: 0, vy: 0, r: 7, pegada: true }, bricks: [], vidas: 3, puntaje: 0,
+    rotos: 0, estado: 'listo', ia: false, iaUsada: false, revisados: 0, t0: 0, keys: {}, vision: { hMin: 19, hMax: 27, sMin: 0.45, vMin: 0.55, n: 0, cx: null, cy: null, decision: '' } };
+  for (var r = 0; r < BR.rows; r++) for (var c = 0; c < BR.cols; c++)
+    m.bricks.push({ x: BR.left + c * (BR.w + BR.gap), y: BR.top + r * (BR.h + BR.gap), c: BRICK_COLORS[r], vivo: true });
+  return m;
+}
+function lanzar(m) {
+  if (!m.ball.pegada) return;
+  var a = rnd(-0.5, 0.5); m.ball.pegada = false;
+  m.ball.vx = 300 * Math.sin(a); m.ball.vy = -300 * Math.cos(a);
+}
+function pasoLadrillos(m, dt) {
+  counters.loops++; lastLines = {}; hit(1);
+  var p = m.paddle, b = m.ball, spd = speedMul();
+  if (m.ia) { m.iaUsada = true; decidirVision(m, dt); if (b.pegada) lanzar(m); }
+  else {
+    var dir = (m.keys.ArrowRight || m.keys.d ? 1 : 0) - (m.keys.ArrowLeft || m.keys.a ? 1 : 0);
+    p.x = clamp(p.x + dir * 460 * dt, p.w / 2, W - p.w / 2);
+  }
+  if (b.pegada) { b.x = p.x; b.y = p.y - 18; hit(10); return; }
+  hit(2);
+  var pasos = 4;
+  for (var s = 0; s < pasos; s++) {
+    var h = dt * spd / pasos;
+    b.x += b.vx * h; b.y += b.vy * h;
+    hit(3);
+    if (cond('pared', b.x < b.r || b.x > W - b.r)) { b.vx = -b.vx; b.x = clamp(b.x, b.r, W - b.r); }
+    hit(4);
+    if (cond('techo', b.y < b.r + 30)) { b.vy = Math.abs(b.vy); }
+    hit(5);
+    if (cond('paleta', b.vy > 0 && b.y + b.r >= p.y && b.y + b.r <= p.y + 14 && Math.abs(b.x - p.x) <= p.w / 2 + b.r)) {
+      var off = (b.x - p.x) / (p.w / 2), sp = Math.hypot(b.vx, b.vy) * 1.01, ang = off * 1.05;
+      b.vx = sp * Math.sin(ang); b.vy = -Math.abs(sp * Math.cos(ang)); b.y = p.y - b.r;
+    }
+    hit(6); var revisados = 0;
+    for (var i = 0; i < m.bricks.length; i++) {
+      var k = m.bricks[i]; if (!k.vivo) continue;
+      revisados++; hit(7);
+      var cx = clamp(b.x, k.x, k.x + BR.w), cy = clamp(b.y, k.y, k.y + BR.h);
+      if (cond('ladrillo', (b.x - cx) * (b.x - cx) + (b.y - cy) * (b.y - cy) <= b.r * b.r)) {
+        hit(8); k.vivo = false; m.rotos++; m.puntaje += 10;
+        var dx = Math.min(Math.abs(b.x - k.x), Math.abs(b.x - k.x - BR.w)), dy = Math.min(Math.abs(b.y - k.y), Math.abs(b.y - k.y - BR.h));
+        if (dx < dy) b.vx = -b.vx; else b.vy = -b.vy;
+        break;
+      }
+    }
+    m.revisados = revisados; counters.extra.revisados = (counters.extra.revisados || 0) + revisados;
+    if (m.rotos === m.bricks.length) { m.puntaje += 100; finPartida('gano'); return; }
+    hit(9);
+    if (cond('fondo', b.y > H + b.r)) {
+      m.vidas--;
+      if (m.vidas <= 0) { finPartida('perdio'); return; }
+      b.pegada = true; b.vx = b.vy = 0; break;
+    }
+  }
+  hit(10);
+}
+/* Piloto automático por visión: la IA no lee la posición de la pelota del modelo.
+   Mira los píxeles de la pantalla, busca el color amarillo y mueve la paleta hacia el centro de esa mancha. */
+var vcan = document.createElement('canvas'); vcan.width = 96; vcan.height = 96;
+var vctx = vcan.getContext('2d', { willReadFrequently: true });
+var VMASK = new Uint8Array(96 * 96);
+function capturar(m) {
+  var v = m.vision;
+  vctx.drawImage(cv, 0, 0, 96, 96);
+  var d = vctx.getImageData(0, 0, 96, 96).data, n = 0, sx = 0, sy = 0, wrap = v.hMin > v.hMax;
+  for (var i = 0, j = 0; i < d.length; i += 4, j++) {
+    var r = d[i], g = d[i + 1], b = d[i + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b), df = mx - mn, hh = 0;
+    if (df) { hh = mx === r ? 60 * ((g - b) / df) : mx === g ? 60 * ((b - r) / df + 2) : 60 * ((r - g) / df + 4); if (hh < 0) hh += 360; }
+    hh /= 2;
+    var inH = wrap ? (hh >= v.hMin || hh <= v.hMax) : (hh >= v.hMin && hh <= v.hMax);
+    var on = mx > 0 && df / mx >= v.sMin && mx / 255 >= v.vMin && inH;
+    VMASK[j] = on ? 1 : 0;
+    if (on) { n++; sx += j % 96; sy += (j / 96) | 0; }
+  }
+  v.n = n;
+  if (n) { v.cx = sx / n * (W / 96); v.cy = sy / n * (H / 96); }
+  else { v.cx = null; v.cy = null; }
+}
+function decidirVision(m, dt) {
+  // La decisión es una cadena de condicionales con lo que vio la cámara en el último cuadro
+  var v = m.vision, p = m.paddle;
+  if (v.cx === null) v.decision = 'no ve la pelota: se queda quieta';
+  else if (v.cx < p.x - 6) { v.decision = 'la pelota está a la izquierda: se mueve a la izquierda'; p.x -= Math.min(520 * dt * speedMul(), p.x - v.cx); }
+  else if (v.cx > p.x + 6) { v.decision = 'la pelota está a la derecha: se mueve a la derecha'; p.x += Math.min(520 * dt * speedMul(), v.cx - p.x); }
+  else v.decision = 'la pelota está encima: se queda quieta';
+  p.x = clamp(p.x, p.w / 2, W - p.w / 2);
+}
+
+/* ---------- Triqui ---------- */
+var LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
+function nuevoTriqui(prev) {
+  return { tablero: [null, null, null, null, null, null, null, null, null], turno: 'X', modo: prev ? prev.modo : 'reglas', empiezaMaquina: prev ? prev.empiezaMaquina : false,
+    ganador: null, linea: null, estado: 'jugando', regla: null, explorados: 0, valores: null, t0: performance.now(), rondas: prev ? prev.rondas : { gano: 0, empate: 0, perdio: 0 }, pensando: false };
+}
+function ganadorDe(t, contar) {
+  for (var i = 0; i < LINES.length; i++) {
+    var l = LINES[i];
+    if (contar) { hit(2); counters.extra.lineas = (counters.extra.lineas || 0) + 1; }
+    var g = t[l[0]] && t[l[0]] === t[l[1]] && t[l[0]] === t[l[2]];
+    if (contar) cond('tres iguales', !!g);
+    if (g) { if (contar) hit(3); return { j: t[l[0]], l: l }; }
+  }
+  return null;
+}
+function libres(t) { var r = []; for (var i = 0; i < 9; i++) if (!t[i]) r.push(i); return r; }
+function revisarTriqui(m) {
+  lastLines = {}; hit(1); counters.loops++;
+  var g = ganadorDe(m.tablero, true);
+  if (g) { m.ganador = g.j; m.linea = g.l; finPartida(g.j === 'X' ? 'gano' : 'perdio'); return true; }
+  hit(4);
+  if (cond('tablero lleno', !libres(m.tablero).length)) { hit(5); m.ganador = 'empate'; finPartida('empate'); return true; }
+  return false;
+}
+var nodos = 0;
+function minimax(t, jugador, prof) {
+  nodos++;
+  var g = ganadorDe(t, false);
+  if (g) return g.j === 'O' ? 10 - prof : prof - 10;
+  var ls = libres(t); if (!ls.length) return 0;
+  var mejor = jugador === 'O' ? -99 : 99;
+  for (var i = 0; i < ls.length; i++) {
+    t[ls[i]] = jugador;
+    var v = minimax(t, jugador === 'O' ? 'X' : 'O', prof + 1);
+    t[ls[i]] = null;
+    mejor = jugador === 'O' ? Math.max(mejor, v) : Math.min(mejor, v);
+  }
+  return mejor;
+}
+function puedeGanar(t, j) {
+  for (var i = 0; i < 9; i++) if (!t[i]) { t[i] = j; var g = ganadorDe(t, false); t[i] = null; if (g) return i; }
+  return -1;
+}
+function jugadaMaquina(m) {
+  var t = m.tablero, ls = libres(t), casilla;
+  m.valores = null; m.explorados = 0;
+  if (m.modo === 'azar') { m.regla = 'azar'; casilla = ls[(Math.random() * ls.length) | 0]; }
+  else if (m.modo === 'reglas') {
+    var c;
+    if ((c = puedeGanar(t, 'O')) >= 0) { m.regla = 'ganar'; casilla = c; }
+    else if ((c = puedeGanar(t, 'X')) >= 0) { m.regla = 'bloquear'; casilla = c; }
+    else if (!t[4]) { m.regla = 'centro'; casilla = 4; }
+    else if ((c = [0, 2, 6, 8].filter(function (k) { return !t[k]; })).length) { m.regla = 'esquina'; casilla = c[(Math.random() * c.length) | 0]; }
+    else { m.regla = 'cualquiera'; casilla = ls[(Math.random() * ls.length) | 0]; }
+  } else {
+    m.regla = 'minimax'; nodos = 0; var vals = {}, best = -99;
+    ls.forEach(function (i) { t[i] = 'O'; var v = minimax(t, 'X', 1); t[i] = null; vals[i] = v; if (v > best) best = v; });
+    var mejores = ls.filter(function (i) { return vals[i] === best; });
+    casilla = mejores[(Math.random() * mejores.length) | 0];
+    m.valores = vals; m.explorados = nodos;
+  }
+  t[casilla] = 'O'; m.turno = 'X';
+  log('la máquina juega en la casilla ' + (casilla + 1) + ' (' + m.regla + ')', ['triqui.tablero[' + casilla + ']: null → "O"']);
+  if (m.modo === 'minimax' && !$('p-ia').hidden) renderIA();
+  revisarTriqui(m);
+}
+function jugarTriqui(m, i) {
+  if (m.estado !== 'jugando' || m.turno !== 'X' || m.tablero[i] || m.pensando) return;
+  var antes = snap();
+  m.tablero[i] = 'X'; m.turno = 'O';
+  logAction('clic en la casilla ' + (i + 1), antes);
+  if (revisarTriqui(m)) return;
+  m.pensando = true;
+  setTimeout(function () { m.pensando = false; if (m.estado === 'jugando') jugadaMaquina(m); }, reduce ? 0 : 380);
+}
+
+/* ---------- Fin de partida: el controlador le pide al modelo que guarde la partida en SQL ---------- */
+function finPartida(resultado) {
+  var g = Modelo.juego, m = Modelo[g];
+  m.estado = 'fin'; m.resultado = resultado;
+  var puntaje = g === 'triqui' ? { gano: 100, empate: 50, perdio: 0 }[resultado] : m.puntaje;
+  if (g === 'triqui') m.rondas[resultado]++;
+  var dur = Math.max(1, Math.round((performance.now() - m.t0) / 1000));
+  asegurarJugador();
+  var sql = 'INSERT INTO partidas (jugador_id, juego_id, puntaje, duracion_s, resultado, piloto, fecha) VALUES (' +
+    Modelo.jugadorId + ', ' + GAME_ID[g] + ', ' + puntaje + ', ' + dur + ", '" + resultado + "', '" + (m.iaUsada ? 'ia' : 'humano') + "', '" + today() + "');";
+  try {
+    var r = db.run(sql)[0];
+    m.partidaId = r.ids[0]; m.sql = sql; inserts++;
+    $('toast').innerHTML = '<b>Partida ' + r.ids[0] + ' guardada:</b> ' + esc(sql);
+    var li = document.createElement('li'); li.textContent = sql;
+    var gl = $('gameLog'); if (gl.firstElementChild && !gl.firstElementChild.textContent.indexOf('Termina')) gl.innerHTML = '';
+    gl.insertBefore(li, gl.firstChild); while (gl.children.length > 6) gl.removeChild(gl.lastChild);
+    log('la partida terminó: ' + resultado, ['INSERT INTO partidas … (id ' + r.ids[0] + ')']);
+  } catch (e) { $('toast').textContent = 'No se pudo guardar la partida: ' + e.message; }
+  actualizarExport(); actualizarRecord(); mostrarOverlay();
+}
+function asegurarJugador() {
+  if (Modelo.jugadorId) return;
+  var sql = "INSERT INTO jugadores (nombre, curso) VALUES ('Invitado', 10);";
+  var r = db.run(sql)[0]; Modelo.jugadorId = r.ids[0];
+  llenarJugadores();
+  log('se creó el jugador Invitado', ['INSERT INTO jugadores … (id ' + r.ids[0] + ')']);
+}
+
+/* =====================================================================
+   VISTA: dibujar la pantalla y los paneles
+   ===================================================================== */
+function fondo() { ctx.fillStyle = '#14112B'; ctx.fillRect(0, 0, W, H); }
+function galleta(x, y, r) {
+  ctx.fillStyle = '#C4853A'; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.fill();
+  ctx.fillStyle = '#3B2216';
+  [[-.35, -.25], [.3, -.3], [.05, .3], [-.3, .35], [.4, .2]].forEach(function (c) { ctx.beginPath(); ctx.arc(x + c[0] * r, y + c[1] * r, r * .14, 0, 6.283); ctx.fill(); });
+}
+function dibujarCulebrita(m) {
+  fondo();
+  ctx.strokeStyle = '#1D1940'; ctx.lineWidth = 1;
+  for (var i = 1; i < N; i++) { ctx.beginPath(); ctx.moveTo(i * CELL, 0); ctx.lineTo(i * CELL, H); ctx.moveTo(0, i * CELL); ctx.lineTo(W, i * CELL); ctx.stroke(); }
+  if (m.ia && m.verBusqueda && m.path.length) {
+    ctx.fillStyle = 'rgba(124,196,255,.22)';
+    m.path.forEach(function (p) { ctx.fillRect(p[0] * CELL + 3, p[1] * CELL + 3, CELL - 6, CELL - 6); });
+  }
+  galleta(m.food.x * CELL + CELL / 2, m.food.y * CELL + CELL / 2, CELL * 0.42);
+  m.body.forEach(function (b, k) {
+    ctx.fillStyle = k === 0 ? '#B8FFE3' : k % 2 ? '#5BE3B5' : '#46C99E';
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(b.x * CELL + 2, b.y * CELL + 2, CELL - 4, CELL - 4, 6) : ctx.rect(b.x * CELL + 2, b.y * CELL + 2, CELL - 4, CELL - 4); ctx.fill();
+  });
+  var h = m.body[0]; ctx.fillStyle = '#14112B';
+  ctx.beginPath(); ctx.arc(h.x * CELL + CELL / 2 + m.dir[0] * 5 - m.dir[1] * 4, h.y * CELL + CELL / 2 + m.dir[1] * 5 + m.dir[0] * 4, 2.5, 0, 6.283); ctx.fill();
+  ctx.beginPath(); ctx.arc(h.x * CELL + CELL / 2 + m.dir[0] * 5 + m.dir[1] * 4, h.y * CELL + CELL / 2 + m.dir[1] * 5 - m.dir[0] * 4, 2.5, 0, 6.283); ctx.fill();
+}
+function dibujarLadrillos(m) {
+  fondo();
+  ctx.fillStyle = '#221E45'; ctx.fillRect(0, 0, W, 30);
+  ctx.fillStyle = '#A7A2CF'; ctx.font = '10px "Press Start 2P", monospace'; ctx.textBaseline = 'middle';
+  ctx.fillText('VIDAS ' + m.vidas, 12, 16); ctx.fillText('PUNTOS ' + m.puntaje, 300, 16);
+  m.bricks.forEach(function (k) {
+    if (!k.vivo) return;
+    ctx.fillStyle = k.c; ctx.fillRect(k.x, k.y, BR.w, BR.h);
+    ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(k.x, k.y, BR.w, 4);
+  });
+  var p = m.paddle; ctx.fillStyle = '#7CC4FF'; ctx.fillRect(p.x - p.w / 2, p.y, p.w, 12);
+  ctx.fillStyle = '#FFD34D'; ctx.beginPath(); ctx.arc(m.ball.x, m.ball.y, m.ball.r, 0, 6.283); ctx.fill();
+}
+function dibujarVisionMarca(m) {
+  var v = m.vision; if (!m.ia || v.cx === null) return;
+  ctx.strokeStyle = '#FF7FA8'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(v.cx, v.cy, 16, 0, 6.283); ctx.moveTo(v.cx - 24, v.cy); ctx.lineTo(v.cx + 24, v.cy); ctx.moveTo(v.cx, v.cy - 24); ctx.lineTo(v.cx, v.cy + 24); ctx.stroke();
+}
+function dibujarTriqui(m) {
+  fondo();
+  var s = 140, x0 = (W - 3 * s) / 2, y0 = (H - 3 * s) / 2;
+  ctx.strokeStyle = '#3B3570'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  for (var i = 1; i < 3; i++) { ctx.beginPath(); ctx.moveTo(x0 + i * s, y0 + 10); ctx.lineTo(x0 + i * s, y0 + 3 * s - 10); ctx.moveTo(x0 + 10, y0 + i * s); ctx.lineTo(x0 + 3 * s - 10, y0 + i * s); ctx.stroke(); }
+  ctx.font = '11px "Press Start 2P", monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  m.tablero.forEach(function (v, k) {
+    var cx = x0 + (k % 3) * s + s / 2, cy = y0 + ((k / 3) | 0) * s + s / 2;
+    ctx.fillStyle = '#5A5490'; ctx.fillText(String(k + 1), cx - s / 2 + 10, cy - s / 2 + 10);
+    if (v === 'X') { ctx.strokeStyle = '#FF8A5C'; ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(cx - 38, cy - 38); ctx.lineTo(cx + 38, cy + 38); ctx.moveTo(cx + 38, cy - 38); ctx.lineTo(cx - 38, cy + 38); ctx.stroke(); }
+    if (v === 'O') { ctx.strokeStyle = '#7CC4FF'; ctx.lineWidth = 12; ctx.beginPath(); ctx.arc(cx, cy, 40, 0, 6.283); ctx.stroke(); }
+    if (!v && m.valores && m.valores[k] !== undefined) {
+      var val = m.valores[k]; ctx.fillStyle = val > 0 ? '#FF7FA8' : val < 0 ? '#5BE3B5' : '#A7A2CF';
+      ctx.font = '14px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText((val > 0 ? '+' : '') + val, cx, cy); ctx.font = '11px "Press Start 2P", monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    }
+  });
+  if (m.linea) {
+    var a = m.linea[0], b = m.linea[2];
+    ctx.strokeStyle = '#FFC94A'; ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(x0 + (a % 3) * s + s / 2, y0 + ((a / 3) | 0) * s + s / 2); ctx.lineTo(x0 + (b % 3) * s + s / 2, y0 + ((b / 3) | 0) * s + s / 2); ctx.stroke();
+  }
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+}
+function dibujar() {
+  var t0 = performance.now(), g = Modelo.juego, m = Modelo[g];
+  if (g === 'culebrita') dibujarCulebrita(m);
+  else if (g === 'ladrillos') { dibujarLadrillos(m); }
+  else dibujarTriqui(m);
+  if (g === 'ladrillos' && (m.ia || !$('p-ia').hidden)) { capturar(m); if (m.ia) dibujarVisionMarca(m); }
+  frames++; lastDrawMs = performance.now() - t0;
+}
+
+/* ---------- Pantallas de inicio y fin ---------- */
+function mostrarOverlay() {
+  var g = Modelo.juego, m = Modelo[g], o = $('overlay');
+  if (g === 'triqui') {
+    if (m.estado === 'fin') {
+      o.hidden = false;
+      o.innerHTML = '<h2>' + (m.resultado === 'gano' ? '¡GANASTE!' : m.resultado === 'empate' ? 'EMPATE' : 'GANÓ LA MÁQUINA') + '</h2>' +
+        (m.sql ? '<code>' + esc(m.sql) + '</code>' : '') + '<button class="cbtn" id="ovGo">Nueva ronda</button>';
+      $('ovGo').onclick = function () { ctrl('nueva ronda de triqui', function () { Modelo.triqui = nuevoTriqui(Modelo.triqui); if (Modelo.triqui.empiezaMaquina) { Modelo.triqui.turno = 'O'; jugadaMaquina(Modelo.triqui); } }); mostrarOverlay(); controles(); renderIA(); };
+    } else o.hidden = true;
+    return;
+  }
+  if (m.estado === 'jugando') { o.hidden = true; return; }
+  o.hidden = false;
+  var tips = g === 'culebrita' ? 'Flechas o W A S D para moverte. Come 25 galletas para ganar.' : 'Mueve la paleta con el ratón, el dedo o las flechas. Espacio para lanzar la pelota.';
+  if (m.estado === 'pausa') o.innerHTML = '<h2>PAUSA</h2><p>Usa «Avanzar una vuelta» en el panel Algoritmo para ver el bucle paso a paso.</p><button class="cbtn" id="ovGo">Continuar</button>';
+  else if (m.estado === 'fin') o.innerHTML = '<h2>' + (m.resultado === 'gano' ? '¡GANASTE!' : 'FIN DEL JUEGO') + '</h2><p>Puntaje: ' + m.puntaje + '</p>' + (m.sql ? '<code>' + esc(m.sql) + '</code>' : '') + '<button class="cbtn" id="ovGo">Jugar otra vez</button>';
+  else o.innerHTML = '<h2>' + (g === 'culebrita' ? 'CULEBRITA' : 'ROMPELADRILLOS') + '</h2><p>' + tips + '</p><button class="cbtn" id="ovGo">Jugar</button>';
+  $('ovGo').onclick = function () { iniciarOContinuar(); };
+}
+function iniciarOContinuar() {
+  var g = Modelo.juego, m = Modelo[g];
+  if (g === 'triqui') return;
+  ctrl(m.estado === 'pausa' ? 'continuar' : 'jugar', function () {
+    if (m.estado === 'fin') { var ia = m.ia, vis = m.vision; Modelo[g] = m = g === 'culebrita' ? nuevaCulebrita() : nuevosLadrillos(); m.ia = ia; if (vis) m.vision = vis; m.iaUsada = ia; }
+    if (m.estado === 'listo') { m.t0 = performance.now(); m.iaUsada = m.ia; resetCounters(); }
+    m.estado = 'jugando';
+  });
+  mostrarOverlay(); cv.focus && cv.focus();
+}
+function pausar() {
+  var m = Modelo[Modelo.juego];
+  if (Modelo.juego === 'triqui' || m.estado !== 'jugando') return;
+  ctrl('pausa', function () { m.estado = 'pausa'; }); mostrarOverlay();
+}
+
+/* ---------- HUD y controles bajo la pantalla ---------- */
+var recordCache = {};
+function actualizarRecord() {
+  var g = Modelo.juego, q = 'SELECT MAX(puntaje) AS record FROM partidas WHERE juego_id = ' + GAME_ID[g] + ';';
+  try { recordCache[g] = { v: db.run(q)[0].rows[0][0], q: q }; } catch (e) { recordCache[g] = { v: '?', q: q }; }
+}
+function hud() {
+  var g = Modelo.juego, m = Modelo[g], rc = recordCache[g] || { v: '…', q: '' }, html;
+  if (g === 'culebrita') html = '<div>PUNTOS<b>' + m.puntaje + '</b></div><div>GALLETAS<b>' + m.galletas + '/25</b></div>';
+  else if (g === 'ladrillos') html = '<div>PUNTOS<b>' + m.puntaje + '</b></div><div>VIDAS<b>' + m.vidas + '</b></div>';
+  else html = '<div>GANADAS<b>' + m.rondas.gano + '</b></div><div>EMPATES<b>' + m.rondas.empate + '</b><small>perdidas: ' + m.rondas.perdio + '</small></div>';
+  html += '<div>RÉCORD<b>' + (rc.v === null ? 0 : rc.v) + '</b><small title="' + esc(rc.q) + '">sale de un SELECT MAX</small></div>';
+  if (html !== hud.last) { $('hud').innerHTML = html; hud.last = html; }
+}
+function controles() {
+  var g = Modelo.juego, m = Modelo[g], c = $('controls');
+  if (g === 'triqui') {
+    c.innerHTML = '<span style="color:var(--cab-muted);font-size:.9rem">La máquina juega con:</span>' +
+      ['azar', 'reglas', 'minimax'].map(function (k) { return '<button class="cbtn ghost" data-mode="' + k + '" aria-pressed="' + (m.modo === k) + '">' + { azar: 'Azar', reglas: 'Reglas si… entonces', minimax: 'Minimax' }[k] + '</button>'; }).join('') +
+      '<label><input type="checkbox" id="startO"' + (m.empiezaMaquina ? ' checked' : '') + '> Empieza la máquina</label>';
+    c.querySelectorAll('[data-mode]').forEach(function (b) { b.onclick = function () { ctrl('modo de la máquina: ' + b.dataset.mode, function () { Modelo.triqui.modo = b.dataset.mode; }); controles(); renderIA(); }; });
+    $('startO').onchange = function (e) { ctrl('empieza la máquina: ' + (e.target.checked ? 'sí' : 'no'), function () { Modelo.triqui.empiezaMaquina = e.target.checked; }); };
+    return;
+  }
+  c.innerHTML = '<button class="cbtn" id="cPlay">' + (m.estado === 'jugando' ? 'Pausa' : 'Jugar') + '</button>' +
+    '<button class="cbtn ghost" id="cIa" aria-pressed="' + m.ia + '">' + (g === 'culebrita' ? 'Piloto automático (búsqueda)' : 'Piloto automático (visión)') + '</button>' +
+    '<button class="cbtn ghost" id="cReset">Reiniciar</button>';
+  $('cPlay').onclick = function () { if (Modelo[g].estado === 'jugando') pausar(); else iniciarOContinuar(); controles(); };
+  $('cIa').onclick = function () { ctrl('piloto automático: ' + (!Modelo[g].ia ? 'encendido' : 'apagado'), function () { Modelo[g].ia = !Modelo[g].ia; if (Modelo[g].ia && Modelo[g].estado === 'jugando') Modelo[g].iaUsada = true; }); controles(); renderIA(); };
+  $('cReset').onclick = function () { ctrl('reiniciar', function () { var ia = Modelo[g].ia, vis = Modelo[g].vision; Modelo[g] = g === 'culebrita' ? nuevaCulebrita() : nuevosLadrillos(); Modelo[g].ia = ia; if (vis) Modelo[g].vision = vis; resetCounters(); }); controles(); renderIA(); mostrarOverlay(); };
+}
+
+/* ---------- Panel Algoritmo ---------- */
+var ALGO = {
+  culebrita: { title: 'El algoritmo de la Culebrita', lead: 'El juego entero es un bucle MIENTRAS que se repite varias veces por segundo. Las líneas amarillas son las que se ejecutaron en la última vuelta.',
+    lines: [['MIENTRAS la culebrita esté viva:', 'bucle'], ['  leer la dirección (tecla o IA)', ''], ['  nueva_cabeza ← cabeza + dirección', ''], ['  SI nueva_cabeza choca con pared o cuerpo:', 'condicional'], ['    terminar el juego (INSERT)', ''], ['  poner nueva_cabeza al frente', ''], ['  SI nueva_cabeza = galleta:', 'condicional'], ['    puntaje ← puntaje + 10 ; nueva galleta', ''], ['  SI NO:', ''], ['    quitar la cola', ''], ['  dibujar la pantalla', 'vista']],
+    note: 'Fíjate en el truco de la cola: la culebrita no «crece»; en cada vuelta se agrega una cabeza y se quita la cola, excepto cuando come. Usa «Avanzar una vuelta» con el juego en pausa para verlo línea por línea.' },
+  ladrillos: { title: 'El algoritmo del Rompeladrillos', lead: 'Un bucle MIENTRAS mueve la pelota unas 60 veces por segundo, y dentro de él un bucle PARA CADA revisa ladrillo por ladrillo si la pelota lo tocó.',
+    lines: [['MIENTRAS queden vidas y ladrillos:', 'bucle'], ['  mover la pelota', ''], ['  SI toca una pared lateral: invertir vx', 'condicional'], ['  SI toca el techo: invertir vy', 'condicional'], ['  SI toca la paleta: rebotar según el punto', 'condicional'], ['  PARA CADA ladrillo que siga entero:', 'bucle'], ['    SI la pelota lo toca:', 'condicional'], ['      romperlo ; puntaje ← puntaje + 10', ''], ['  SI la pelota cae al fondo: perder una vida', 'condicional'], ['  dibujar la pantalla', 'vista']],
+    note: 'Cuantos más ladrillos quedan, más trabajo hace el bucle PARA CADA en cada vuelta. Por eso los juegos reales dividen la pantalla en zonas: así no revisan todos los objetos todo el tiempo.' },
+  triqui: { title: 'El algoritmo del Triqui', lead: 'Después de cada jugada, un bucle PARA CADA revisa las 8 líneas del tablero (3 filas, 3 columnas y 2 diagonales) con un condicional.',
+    lines: [['después de cada jugada:', ''], ['  PARA CADA una de las 8 líneas:', 'bucle'], ['    SI sus 3 casillas son iguales y no están vacías: hay ganador', 'condicional'], ['  SI no hay ganador:', 'condicional'], ['    SI no quedan casillas libres: es empate', 'condicional']],
+    note: 'El bucle se detiene apenas encuentra un ganador (como un break en Python). Mira en la tabla cuántas líneas revisó en total. En la pestaña IA y visión verás cómo decide la máquina.' }
+};
+function renderAlgo() {
+  var a = ALGO[Modelo.juego];
+  $('algoTitle').textContent = a.title; $('algoLead').textContent = a.lead; $('algoNote').textContent = a.note;
+  $('algo').innerHTML = a.lines.map(function (l, i) { return '<li data-l="' + (i + 1) + '"><span>' + esc(l[0]) + '</span><em>' + l[1] + '</em></li>'; }).join('');
+  $('stepBtn').hidden = Modelo.juego === 'triqui';
+  $('spd').closest('label').hidden = Modelo.juego === 'triqui';
+}
+function speedMul() { return 0.4 + (+$('spd').value) * 0.16; }
+function tps() { return 3 + (+$('spd').value) * 1.5; }
+var NOMBRES_COND = { choque: '¿choca con pared o cuerpo?', galleta: '¿se comió la galleta?', pared: '¿toca una pared lateral?', techo: '¿toca el techo?', paleta: '¿toca la paleta?', ladrillo: '¿toca un ladrillo?', fondo: '¿cayó al fondo?', 'tres iguales': '¿3 casillas iguales?', 'tablero lleno': '¿el tablero está lleno?' };
+var lastAlgoHtml = '';
+function updateAlgoPanel() {
+  var lis = $('algo').children;
+  for (var i = 0; i < lis.length; i++) lis[i].classList.toggle('on', !!lastLines[i + 1]);
+  var g = Modelo.juego, m = Modelo[g], st = '<div class="stat"><b>' + counters.loops + '</b><span>' + (g === 'triqui' ? 'revisiones del tablero' : 'vueltas del bucle principal') + '</span></div>';
+  if (g === 'culebrita') st += '<div class="stat"><b>' + m.body.length + '</b><span>segmentos en la lista del cuerpo</span></div>';
+  if (g === 'ladrillos') st += '<div class="stat"><b>' + m.revisados + '</b><span>ladrillos revisados en la última vuelta</span></div><div class="stat"><b>' + (counters.extra.revisados || 0) + '</b><span>revisiones en toda la partida</span></div>';
+  if (g === 'triqui') st += '<div class="stat"><b>' + (counters.extra.lineas || 0) + '</b><span>líneas revisadas por el bucle</span></div>';
+  var rows = Object.keys(counters.cond).map(function (k) { var c = counters.cond[k]; return '<tr><td>' + (NOMBRES_COND[k] || k) + '</td><td class="n">' + c.t + '</td><td class="n">' + c.f + '</td></tr>'; }).join('');
+  var html = st + '|' + (rows ? '<tr><th>Condición</th><th>verdadera</th><th>falsa</th></tr>' + rows : '<tr><td>Juega para ver cuántas veces cada condición fue verdadera o falsa.</td></tr>');
+  if (html !== lastAlgoHtml) { var p = html.split('|'); $('loopStats').innerHTML = p[0]; $('condTable').innerHTML = p[1]; lastAlgoHtml = html; }
+}
+
+/* ---------- Panel IA y visión ---------- */
+function renderIA() {
+  var g = Modelo.juego, m = Modelo[g], p = $('p-ia');
+  if (g === 'culebrita') {
+    p.innerHTML = '<div><h2>La culebrita que busca su camino</h2><p class="lead">El piloto automático usa <b>búsqueda en anchura</b> (BFS): explora la cuadrícula por capas, como una mancha de agua que se expande desde la cabeza, hasta encontrar la galleta. Luego sigue el camino más corto.</p></div>' +
+      '<div class="row"><button class="btn" id="iaOn" aria-pressed="' + m.ia + '">' + (m.ia ? 'Apagar' : 'Encender') + ' el piloto automático</button><label class="chk"><input type="checkbox" id="verB"' + (m.verBusqueda ? ' checked' : '') + '> Ver el camino en la pantalla</label></div>' +
+      '<div class="stats"><div class="stat"><b id="iaN">0</b><span>celdas exploradas en la última búsqueda</span></div><div class="stat"><b id="iaL">0</b><span>pasos del camino encontrado</span></div></div>' +
+      '<p class="note" id="iaMsg">Enciende el piloto y presiona Jugar.</p>' +
+      '<ol class="algo"><li><span>cola ← [cabeza] ; marcar cabeza como visitada</span><em>BFS</em></li><li><span>MIENTRAS la cola no esté vacía:</span><em>bucle</em></li><li><span>  celda ← sacar la primera de la cola</span><em></em></li><li><span>  SI celda = galleta: reconstruir el camino y parar</span><em>condicional</em></li><li><span>  PARA CADA vecina (arriba, derecha, abajo, izquierda):</span><em>bucle</em></li><li><span>    SI está libre y no visitada: meterla en la cola</span><em>condicional</em></li></ol>' +
+      '<p class="note">La búsqueda solo mira la galleta de ahora, no planea el futuro. Por eso, cuando la culebrita es muy larga, a veces se encierra sola. ¿Cómo la mejorarías?</p>';
+    $('iaOn').onclick = function () { var c = Modelo.culebrita; ctrl('piloto automático: ' + (!c.ia ? 'encendido' : 'apagado'), function () { c.ia = !c.ia; if (c.ia && c.estado === 'jugando') c.iaUsada = true; }); renderIA(); controles(); };
+    $('verB').onchange = function (e) { ctrl('ver el camino: ' + (e.target.checked ? 'sí' : 'no'), function () { Modelo.culebrita.verBusqueda = e.target.checked; }); };
+  } else if (g === 'ladrillos') {
+    var v = m.vision;
+    p.innerHTML = '<div><h2>Un piloto que juega mirando la pantalla</h2><p class="lead">Este piloto <b>no</b> lee la posición de la pelota del modelo. Como una cámara con OpenCV, toma la imagen de la pantalla, la achica a 96 × 96 píxeles, pasa cada píxel a HSV y se queda con los que tienen el tono del amarillo. El centro de esa mancha es «la pelota».</p></div>' +
+      '<div class="row"><button class="btn" id="iaOn" aria-pressed="' + m.ia + '">' + (m.ia ? 'Apagar' : 'Encender') + ' el piloto por visión</button></div>' +
+      '<div class="vision"><figure><canvas id="vSee" width="96" height="96"></canvas><figcaption>Lo que ve la cámara (96 × 96)</figcaption></figure><figure><canvas id="vMask" width="96" height="96"></canvas><figcaption>Máscara: blanco = píxeles dentro del rango</figcaption></figure></div>' +
+      '<div class="two"><label class="sl">Tono mínimo <output id="hMinO">' + v.hMin + '</output><input type="range" id="hMin" min="0" max="179" value="' + v.hMin + '"></label>' +
+      '<label class="sl">Tono máximo <output id="hMaxO">' + v.hMax + '</output><input type="range" id="hMax" min="0" max="179" value="' + v.hMax + '"></label></div>' +
+      '<div class="two"><label class="sl">Saturación mínima <output id="sMinO">' + v.sMin.toFixed(2) + '</output><input type="range" id="sMin" min="0" max="1" step="0.05" value="' + v.sMin + '"></label>' +
+      '<label class="sl">Brillo mínimo <output id="vMinO">' + v.vMin.toFixed(2) + '</output><input type="range" id="vMin" min="0" max="1" step="0.05" value="' + v.vMin + '"></label></div>' +
+      '<div class="stats"><div class="stat"><b id="vN">0</b><span>píxeles detectados</span></div><div class="stat"><b id="vX">sin dato</b><span>centro x de la mancha</span></div></div>' +
+      '<ol class="algo" id="vRules"><li data-r="none"><span>SI no hay píxeles detectados: quedarse quieta</span><em>condicional</em></li><li data-r="left"><span>SI NO, SI centro_x &lt; paleta_x − 6: moverse a la izquierda</span><em></em></li><li data-r="right"><span>SI NO, SI centro_x &gt; paleta_x + 6: moverse a la derecha</span><em></em></li><li data-r="stay"><span>SI NO: quedarse quieta</span><em></em></li></ol>' +
+      '<p class="note">Colores en la escala de OpenCV (0 a 179): pelota amarilla ≈ 22, ladrillos naranjas ≈ 12, ladrillos café ≈ 16, paleta azul ≈ 103. Prueba un tono mínimo de 10: los ladrillos también entran en la máscara, el centro de la mancha se va hacia arriba y el piloto empieza a fallar.</p>';
+    $('iaOn').onclick = function () { var c = Modelo.ladrillos; ctrl('piloto por visión: ' + (!c.ia ? 'encendido' : 'apagado'), function () { c.ia = !c.ia; if (c.ia && c.estado === 'jugando') c.iaUsada = true; }); renderIA(); controles(); };
+    [['hMin', 0], ['hMax', 0], ['sMin', 2], ['vMin', 2]].forEach(function (k) {
+      $(k[0]).oninput = function (e) { var v = Modelo.ladrillos.vision; v[k[0]] = +e.target.value; $(k[0] + 'O').textContent = k[1] ? v[k[0]].toFixed(2) : v[k[0]]; };
+      $(k[0]).onchange = function (e) { log('deslizador ' + k[0] + ' = ' + e.target.value, ['ladrillos.vision.' + k[0] + ' → ' + e.target.value]); };
+    });
+  } else {
+    p.innerHTML = '<div><h2>¿Cómo decide la máquina?</h2><p class="lead">Escoge cómo juega la máquina con los botones bajo el tablero. Los tres modos son algoritmos distintos para el mismo problema.</p></div>' +
+      '<div class="seg">' + ['azar', 'reglas', 'minimax'].map(function (k) { return '<button class="btn" data-mode="' + k + '" aria-pressed="' + (m.modo === k) + '">' + { azar: 'Azar', reglas: 'Reglas si… entonces', minimax: 'Minimax' }[k] + '</button>'; }).join('') + '</div>' +
+      (m.modo === 'azar' ? '<p class="note">Escoge cualquier casilla libre al azar. No usa condicionales para decidir, así que es fácil de vencer.</p>' :
+       m.modo === 'reglas' ? '<ol class="algo" id="rules"><li data-r="ganar"><span>SI puedo ganar en esta jugada: jugar ahí</span><em>if</em></li><li data-r="bloquear"><span>SI NO, SI el rival puede ganar: bloquearlo</span><em>elif</em></li><li data-r="centro"><span>SI NO, SI el centro está libre: tomar el centro</span><em>elif</em></li><li data-r="esquina"><span>SI NO, SI hay una esquina libre: tomar una esquina</span><em>elif</em></li><li data-r="cualquiera"><span>SI NO: jugar en cualquier casilla libre</span><em>else</em></li></ol><p class="note">Es una cadena if, elif, else: se revisa en orden y se usa la primera regla que se cumple. La línea amarilla es la regla que usó en su última jugada. ¿Encuentras una forma de ganarle?</p>' :
+       '<div class="stats"><div class="stat"><b>' + m.explorados + '</b><span>posiciones exploradas en la última jugada</span></div></div><p class="note">Minimax imagina todas las partidas posibles desde el tablero actual: en sus turnos supone que la máquina escoge lo mejor y en los tuyos, que tú también. Los números en las casillas libres son su evaluación: positivo = la máquina gana, 0 = empate, negativo = tú ganas. Nunca pierde: lo mejor que puedes lograr es empatar.</p>');
+    p.querySelectorAll('[data-mode]').forEach(function (b) { b.onclick = function () { ctrl('modo de la máquina: ' + b.dataset.mode, function () { Modelo.triqui.modo = b.dataset.mode; }); controles(); renderIA(); }; });
+  }
+}
+var vSeeImg = null;
+function updateIAPanel() {
+  if ($('p-ia').hidden) return;
+  var g = Modelo.juego, m = Modelo[g];
+  if (g === 'culebrita' && $('iaN')) { $('iaN').textContent = m.explorados; $('iaL').textContent = m.path.length; if (m.ia && m.busqueda) $('iaMsg').textContent = 'La búsqueda ' + m.busqueda + '.'; }
+  if (g === 'ladrillos' && $('vSee')) {
+    var v = m.vision;
+    var sc = $('vSee').getContext('2d'); sc.drawImage(vcan, 0, 0);
+    var mc = $('vMask').getContext('2d'), im = mc.createImageData(96, 96);
+    for (var j = 0; j < VMASK.length; j++) { var o = VMASK[j] ? 255 : 0; im.data[j * 4] = im.data[j * 4 + 1] = im.data[j * 4 + 2] = o; im.data[j * 4 + 3] = 255; }
+    mc.putImageData(im, 0, 0);
+    if (v.cx !== null) { mc.strokeStyle = '#FF7FA8'; mc.lineWidth = 1; mc.beginPath(); mc.arc(v.cx * 96 / W, v.cy * 96 / H, 5, 0, 6.283); mc.stroke(); }
+    $('vN').textContent = v.n; $('vX').textContent = v.cx === null ? 'sin dato' : Math.round(v.cx) + ' px';
+    var px = m.paddle.x, r = v.cx === null ? 'none' : v.cx < px - 6 ? 'left' : v.cx > px + 6 ? 'right' : 'stay';
+    $('vRules').querySelectorAll('li').forEach(function (li) { li.classList.toggle('on', m.ia && li.dataset.r === r); });
+  }
+  if (g === 'triqui' && $('rules')) $('rules').querySelectorAll('li').forEach(function (li) { li.classList.toggle('on', li.dataset.r === m.regla); });
+}
+
+/* ---------- Panel MVC ---------- */
+function snap() {
+  var g = Modelo.juego, m = Modelo[g], o = { juego: g, jugador_id: Modelo.jugadorId };
+  if (g === 'culebrita') o.culebrita = { estado: m.estado, direccion: m.dir.join(','), largo: m.body.length, cabeza: m.body[0].x + ',' + m.body[0].y, galleta: m.food.x + ',' + m.food.y, puntaje: m.puntaje, piloto_automatico: m.ia };
+  else if (g === 'ladrillos') o.ladrillos = { estado: m.estado, vidas: m.vidas, puntaje: m.puntaje, ladrillos_rotos: m.rotos, paleta_x: Math.round(m.paddle.x), pelota: Math.round(m.ball.x) + ',' + Math.round(m.ball.y), piloto_automatico: m.ia, tono_min: m.vision.hMin, tono_max: m.vision.hMax };
+  else o.triqui = { estado: m.estado, tablero: m.tablero.map(function (v) { return v || '·'; }).join(''), turno: m.turno, modo_maquina: m.modo, ultima_regla: m.regla };
+  o.base_de_datos = { jugadores: db.table('jugadores').rows.length, partidas: db.table('partidas').rows.length };
+  return o;
+}
+function flat(o, pre, out) { out = out || {}; Object.keys(o).forEach(function (k) { var v = o[k], key = pre ? pre + '.' + k : k; if (v && typeof v === 'object') flat(v, key, out); else out[key] = JSON.stringify(v); }); return out; }
+function logAction(accion, antes) {
+  var a = flat(antes), d = flat(snap()), ch = [];
+  Object.keys(d).forEach(function (k) { if (a[k] !== d[k]) ch.push(k + ': ' + (a[k] === undefined ? '—' : a[k]) + ' → ' + d[k]); });
+  log(accion, ch);
+}
+function log(accion, ch) { ctrlLog.unshift({ a: accion, c: (ch || []).slice(0, 4) }); if (ctrlLog.length > 6) ctrlLog.pop(); }
+function ctrl(accion, fn) { var antes = snap(); fn(); logAction(accion, antes); }
+var lastMvc = 0;
+function updateMVC(now) {
+  if ($('p-mvc').hidden || now - lastMvc < 400) return; lastMvc = now;
+  $('mvcM').textContent = JSON.stringify(snap(), null, 1);
+  $('mvcC').innerHTML = ctrlLog.length ? ctrlLog.map(function (x) { return '<li><b>' + esc(x.a) + '</b>' + (x.c.length ? '<br>' + x.c.map(esc).join('<br>') : '') + '</li>'; }).join('') : '<li>Todavía no has hecho ninguna acción.</li>';
+  $('mvcV').innerHTML = '<li>Pantalla del juego: ' + frames + ' cuadros dibujados (el último tardó ' + lastDrawMs.toFixed(2) + ' ms)</li><li>Marcador: lee puntaje y récord del modelo</li><li>Paneles: se actualizan leyendo el modelo y la base de datos</li>';
+}
+
+/* =====================================================================
+   BASE DE DATOS: consola, ejemplos y exportación
+   ===================================================================== */
+var EJEMPLOS = [
+  ['Consultas simples', [
+    ['Todas las tablas: jugadores', 'SELECT * FROM jugadores;'],
+    ['Los juegos', 'SELECT id, nombre, categoria FROM juegos;'],
+    ['Las 10 partidas más altas', 'SELECT id, jugador_id, juego_id, puntaje\nFROM partidas\nORDER BY puntaje DESC\nLIMIT 10;'],
+    ['Resultados distintos', 'SELECT DISTINCT resultado FROM partidas;']]],
+  ['WHERE con condiciones', [
+    ['Triqui ganados', "SELECT * FROM partidas\nWHERE juego_id = 3 AND resultado = 'gano';"],
+    ['Puntaje entre 150 y 250', 'SELECT id, juego_id, puntaje FROM partidas\nWHERE puntaje BETWEEN 150 AND 250\nORDER BY puntaje;'],
+    ['Nombres que empiezan por S', "SELECT nombre, curso FROM jugadores\nWHERE nombre LIKE 'S%';"],
+    ['Paréntesis importan', "SELECT nombre, curso FROM jugadores\nWHERE (curso = 10 OR curso = 11)\n  AND nombre LIKE 'M%';"]]],
+  ['JOIN entre tablas', [
+    ['Quién jugó qué', 'SELECT j.nombre, g.nombre AS juego, p.puntaje\nFROM partidas p\nJOIN jugadores j ON p.jugador_id = j.id\nJOIN juegos g ON p.juego_id = g.id\nORDER BY p.puntaje DESC\nLIMIT 10;'],
+    ['Jugadores sin partidas', 'SELECT j.nombre\nFROM jugadores j\nLEFT JOIN partidas p ON p.jugador_id = j.id\nWHERE p.id IS NULL;']]],
+  ['Agrupar con GROUP BY', [
+    ['Récord y promedio por juego', 'SELECT g.nombre, COUNT(*) AS partidas,\n       MAX(p.puntaje) AS record,\n       ROUND(AVG(p.puntaje), 1) AS promedio\nFROM partidas p\nJOIN juegos g ON p.juego_id = g.id\nGROUP BY g.nombre\nORDER BY record DESC;'],
+    ['Humano contra IA', "SELECT g.nombre, p.piloto, ROUND(AVG(p.puntaje), 1) AS promedio\nFROM partidas p\nJOIN juegos g ON p.juego_id = g.id\nWHERE p.juego_id IN (1, 2)\nGROUP BY g.nombre, p.piloto;"],
+    ['Jugadores con más de 1500 puntos', 'SELECT j.nombre, SUM(p.puntaje) AS total\nFROM partidas p\nJOIN jugadores j ON p.jugador_id = j.id\nGROUP BY j.id, j.nombre\nHAVING SUM(p.puntaje) > 1500\nORDER BY total DESC;']]],
+  ['Modificar datos', [
+    ['INSERT de un jugador', "INSERT INTO jugadores (nombre, curso)\nVALUES ('Profe', 11);"],
+    ['UPDATE con WHERE', "UPDATE jugadores SET curso = 11\nWHERE nombre = 'Samuel';"],
+    ['UPDATE sin WHERE (modo seguro)', 'UPDATE partidas SET puntaje = 0;'],
+    ['DELETE que rompe una relación', 'DELETE FROM jugadores WHERE id = 1;'],
+    ['INSERT con clave foránea mala', "INSERT INTO partidas (jugador_id, juego_id, puntaje, duracion_s, resultado, piloto, fecha)\nVALUES (99, 1, 50, 30, 'perdio', 'humano', '2026-11-04');"]]]
+];
+function renderExamples() {
+  $('examples').innerHTML = EJEMPLOS.map(function (g, gi) {
+    return '<p class="cat">' + g[0] + '</p><div class="chips">' + g[1].map(function (e, ei) { return '<button data-ex="' + gi + '.' + ei + '">' + esc(e[0]) + '</button>'; }).join('') + '</div>';
+  }).join('');
+  $('examples').querySelectorAll('[data-ex]').forEach(function (b) {
+    b.onclick = function () { var k = b.dataset.ex.split('.'); $('sqlIn').value = EJEMPLOS[k[0]][1][k[1]][1]; ejecutarSQL('ejemplo «' + b.textContent + '»'); };
+  });
+}
+function renderSchema() {
+  $('schema').innerHTML = db.order.map(function (t) {
+    return '<div><b>' + t.name + ' (' + t.rows.length + ')</b>' + t.cols.map(function (c) {
+      return '<span class="' + (c.pk ? 'pk' : c.fk ? 'fk' : '') + '">' + c.name + (c.pk ? ' PK' : c.fk ? ' FK → ' + c.fk : '') + '</span>';
+    }).join('') + '</div>';
+  }).join('');
+}
+function fmtVal(v) { if (v === null) return '<td class="null">NULL</td>'; if (typeof v === 'number') return '<td class="num">' + (Number.isInteger(v) ? v : (Math.round(v * 10000) / 10000)) + '</td>'; return '<td>' + esc(v) + '</td>'; }
+function ejecutarSQL(origen) {
+  var txt = $('sqlIn').value, antes = snap(), res;
+  $('sqlPlanBox').hidden = true;
+  try { res = db.run(txt); }
+  catch (e) {
+    var ok = (e.partial || []).length;
+    $('sqlMsg').innerHTML = '<p class="msg err"><b>' + (e.sql ? 'Error en la sentencia' + (ok ? ' ' + (ok + 1) : '') : 'Error') + ':</b> ' + esc(e.message) + (ok ? ' Las sentencias anteriores tampoco se guardaron.' : '') + '</p>';
+    $('sqlRes').innerHTML = '';
+    log((origen || 'ejecutar SQL') + ' → error', []);
+    return;
+  }
+  var last = res[res.length - 1], msgs = res.filter(function (r) { return r.message; }).map(function (r) { return r.message; });
+  if (last.type === 'select') {
+    $('sqlMsg').innerHTML = '<p class="msg ok">' + (msgs.length ? esc(msgs.join(' ')) + ' ' : '') + 'La consulta devolvió ' + last.rows.length + ' fila(s).</p>';
+    $('sqlRes').innerHTML = last.rows.length ? '<div class="result"><table><thead><tr>' + last.columns.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      last.rows.slice(0, 300).map(function (r) { return '<tr>' + r.map(fmtVal).join('') + '</tr>'; }).join('') + '</tbody></table></div>' : '';
+  } else { $('sqlMsg').innerHTML = '<p class="msg ok">' + esc(msgs.join(' ')) + '</p>'; $('sqlRes').innerHTML = ''; }
+  var mx = Math.max.apply(null, last.steps.map(function (s) { return s.n; }).concat([1]));
+  $('sqlPlan').innerHTML = last.steps.map(function (s) {
+    return '<li><span class="cl">' + esc(s.clause) + '</span><span class="bar"><i style="width:' + Math.max(1, s.n / mx * 100) + '%"></i></span>' +
+      '<span class="dt">' + (s.detail ? esc(s.detail) + ' — ' : '') + s.n + ' ' + s.unit + '</span><span class="ex">' + esc(s.explain) + '</span></li>';
+  }).join('');
+  $('sqlPlanBox').hidden = false;
+  logAction((origen || 'ejecutar SQL') + ': ' + last.type.toUpperCase(), antes);
+  if (last.type !== 'select' || res.length > 1) { llenarJugadores(); actualizarRecord(); actualizarExport(); }
+  renderSchema();
+}
+function exportarSQL() {
+  var js = db.table('jugadores').rows.filter(function (r) { return r.id > 100; }), ps = db.table('partidas').rows.filter(function (r) { return r.id > 1000; });
+  var out = ['-- Datos del Arcade de datos (' + today() + ')'];
+  js.forEach(function (r) { out.push('INSERT INTO jugadores (id, nombre, curso) VALUES (' + r.id + ', ' + sqlStr(r.nombre) + ', ' + (r.curso === null ? 'NULL' : r.curso) + ');'); });
+  ps.forEach(function (r) {
+    out.push('INSERT INTO partidas (id, jugador_id, juego_id, puntaje, duracion_s, resultado, piloto, fecha) VALUES (' + [r.id, r.jugador_id, r.juego_id, r.puntaje, r.duracion_s].map(function (v) { return v === null ? 'NULL' : v; }).join(', ') + ', ' +
+      [r.resultado, r.piloto, r.fecha].map(function (v) { return v === null ? 'NULL' : sqlStr(v); }).join(', ') + ');');
+  });
+  return { text: out.join('\n'), j: js.length, p: ps.length };
+}
+function actualizarExport() { var e = exportarSQL(); $('exportInfo').textContent = 'Listo para copiar: ' + e.j + ' jugador(es) nuevo(s) y ' + e.p + ' partida(s) nueva(s).'; renderSchema(); }
+function llenarJugadores() {
+  var sel = $('who'), rows = db.run('SELECT id, nombre, curso FROM jugadores ORDER BY nombre;')[0].rows;
+  sel.innerHTML = '<option value="">Escoge quién juega…</option>' + rows.map(function (r) { return '<option value="' + r[0] + '">' + esc(r[1]) + (r[2] ? ' (' + r[2] + '.°)' : '') + '</option>'; }).join('') + '<option value="new">+ Nuevo jugador</option>';
+  if (Modelo.jugadorId && !rows.some(function (r) { return r[0] === Modelo.jugadorId; })) Modelo.jugadorId = null;
+  sel.value = Modelo.jugadorId ? String(Modelo.jugadorId) : '';
+}
+
+/* =====================================================================
+   CONTROLADOR: teclado, ratón, toques y botones
+   ===================================================================== */
+function cambiarJuego(g) {
+  ctrl('cambiar al juego ' + g, function () { var cur = Modelo[Modelo.juego]; if (cur && cur.estado === 'jugando') cur.estado = 'pausa'; Modelo.juego = g; });
+  document.querySelectorAll('.games button').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.g === g ? 'true' : 'false'); });
+  document.documentElement.style.setProperty('--gc', GAME_COLOR[g]);
+  $('pad').style.visibility = g === 'triqui' ? 'hidden' : 'visible';
+  resetCounters(); renderAlgo(); renderIA(); controles(); actualizarRecord(); mostrarOverlay(); lastAlgoHtml = '';
+}
+document.querySelectorAll('.games button').forEach(function (b) { b.onclick = function () { cambiarJuego(b.dataset.g); }; });
+document.querySelectorAll('.tabs button').forEach(function (b) {
+  b.onclick = function () {
+    document.querySelectorAll('.tabs button').forEach(function (x) { x.setAttribute('aria-selected', x === b ? 'true' : 'false'); });
+    ['algo', 'ia', 'db', 'mvc'].forEach(function (k) { $('p-' + k).hidden = k !== b.dataset.p; });
+    if (b.dataset.p === 'ia') renderIA();
+    lastMvc = 0;
+  };
+});
+function tecla(k) {
+  var g = Modelo.juego, m = Modelo[g];
+  if (g === 'culebrita') {
+    var d = DIRS[k] || DIRS[k.toLowerCase && k.toLowerCase()]; if (!d) return false;
+    if (m.estado !== 'jugando') return true;
+    var last = m.queue.length ? m.queue[m.queue.length - 1] : m.dir;
+    if (d[0] === -last[0] && d[1] === -last[1]) return true;            // no puede devolverse sobre sí misma
+    if (m.queue.length < 2) { var antes = snap(); m.queue.push(d); if (m.ia) { m.ia = false; controles(); renderIA(); } logAction('tecla ' + k, antes); }
+    return true;
+  }
+  return false;
+}
+document.addEventListener('keydown', function (e) {
+  if (e.target.closest && e.target.closest('textarea, input, select')) { if (e.target.id === 'sqlIn' && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); ejecutarSQL(); } return; }
+  var g = Modelo.juego, m = Modelo[g];
+  if (e.key === ' ' || e.key === 'Enter') {
+    if (g === 'triqui') return;
+    e.preventDefault();
+    if (g === 'ladrillos' && m.estado === 'jugando' && m.ball.pegada) { ctrl('lanzar la pelota', function () { lanzar(m); }); return; }
+    if (m.estado === 'jugando') pausar(); else iniciarOContinuar(); controles(); return;
+  }
+  if (e.key === 'p' || e.key === 'P') { pausar(); controles(); return; }
+  if (g === 'culebrita' && tecla(e.key)) { e.preventDefault(); return; }
+  if (g === 'ladrillos' && (e.key in DIRS)) { e.preventDefault(); if (!m.keys[e.key]) { m.keys[e.key] = true; log('tecla ' + e.key + ' presionada', ['ladrillos.paleta_x cambia mientras la tecla siga presionada']); } }
+});
+document.addEventListener('keyup', function (e) { var m = Modelo.ladrillos; if (m && m.keys) m.keys[e.key] = false; });
+function canvasXY(e) { var r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H]; }
+var touchStart = null;
+cv.addEventListener('pointerdown', function (e) {
+  var g = Modelo.juego, m = Modelo[g], p = canvasXY(e);
+  if (g === 'triqui') {
+    var s = 140, x0 = (W - 3 * s) / 2, y0 = (H - 3 * s) / 2, c = Math.floor((p[0] - x0) / s), r = Math.floor((p[1] - y0) / s);
+    if (c >= 0 && c < 3 && r >= 0 && r < 3) jugarTriqui(m, r * 3 + c);
+    return;
+  }
+  touchStart = p;
+  if (g === 'ladrillos' && m.estado === 'jugando') { if (m.ball.pegada) ctrl('lanzar la pelota', function () { lanzar(m); }); else movePaddle(p[0]); }
+});
+cv.addEventListener('pointermove', function (e) {
+  var g = Modelo.juego, m = Modelo[g];
+  if (g === 'ladrillos' && m.estado === 'jugando' && !m.ia && (e.pointerType === 'mouse' || touchStart)) movePaddle(canvasXY(e)[0]);
+});
+cv.addEventListener('pointerup', function (e) {
+  if (Modelo.juego === 'culebrita' && touchStart) {
+    var p = canvasXY(e), dx = p[0] - touchStart[0], dy = p[1] - touchStart[1];
+    if (Math.max(Math.abs(dx), Math.abs(dy)) > 24) tecla(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'ArrowRight' : 'ArrowLeft') : (dy > 0 ? 'ArrowDown' : 'ArrowUp'));
+  }
+  touchStart = null;
+});
+var lastPaddleLog = 0;
+function movePaddle(x) {
+  var m = Modelo.ladrillos; if (m.ia) return;
+  m.paddle.x = clamp(x, m.paddle.w / 2, W - m.paddle.w / 2);
+  var now = performance.now(); if (now - lastPaddleLog > 1500) { lastPaddleLog = now; log('mover el ratón o el dedo', ['ladrillos.paleta_x → ' + Math.round(m.paddle.x)]); }
+}
+$('pad').querySelectorAll('button').forEach(function (b) {
+  b.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    var g = Modelo.juego, m = Modelo[g];
+    if (g === 'culebrita') { if (m.estado !== 'jugando') iniciarOContinuar(); tecla(b.dataset.k); }
+    else if (g === 'ladrillos') { if (m.estado !== 'jugando') iniciarOContinuar(); else if (m.ball.pegada) lanzar(m); m.keys[b.dataset.k] = true; }
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { b.addEventListener(ev, function () { var m = Modelo.ladrillos; if (m) m.keys[b.dataset.k] = false; }); });
+});
+$('stepBtn').onclick = function () {
+  var g = Modelo.juego, m = Modelo[g];
+  if (g === 'triqui') return;
+  if (m.estado === 'jugando') pausar();
+  if (m.estado === 'listo') { m.t0 = performance.now(); m.iaUsada = m.ia; resetCounters(); }
+  if (m.estado === 'fin') return;
+  var antes = snap();
+  m.estado = 'jugando';
+  if (g === 'culebrita') pasoCulebrita(m); else pasoLadrillos(m, 1 / 30);
+  if (m.estado === 'jugando') m.estado = 'pausa';
+  logAction('avanzar una vuelta del bucle', antes);
+  mostrarOverlay(); controles();
+};
+$('spd').oninput = function () { $('spdOut').textContent = $('spd').value + ' de 10'; };
+$('spd').onchange = function () { log('velocidad = ' + $('spd').value, []); };
+$('spdOut').textContent = $('spd').value + ' de 10';
+$('runSql').onclick = function () { ejecutarSQL(); };
+$('clearSql').onclick = function () { $('sqlIn').value = ''; $('sqlIn').focus(); };
+$('copySql').onclick = function () {
+  var e = exportarSQL(), b = this, t = $('exportTxt');
+  t.value = e.text;
+  function done(ok) { b.textContent = ok ? 'SQL copiado' : 'Selecciona el texto de abajo y cópialo'; setTimeout(function () { b.textContent = 'Copiar SQL para el cuaderno'; }, 2000); if (!ok) { t.className = ''; t.style.width = '100%'; t.style.minHeight = '120px'; t.select(); } }
+  try { navigator.clipboard.writeText(e.text).then(function () { done(true); }, function () { done(false); }); } catch (err) { done(false); }
+  log('copiar SQL para el cuaderno', []);
+};
+$('resetDb').onclick = function () { $('resetAsk').hidden = false; };
+$('resetNo').onclick = function () { $('resetAsk').hidden = true; };
+$('resetYes').onclick = function () {
+  ctrl('reiniciar la base de datos', function () { crearBase(); Modelo.jugadorId = null; });
+  $('resetAsk').hidden = true; llenarJugadores(); actualizarExport(); actualizarRecord(); $('sqlMsg').innerHTML = '<p class="msg ok">La base de datos volvió a los datos de ejemplo.</p>'; $('sqlRes').innerHTML = ''; $('sqlPlanBox').hidden = true;
+};
+$('who').onchange = function (e) {
+  if (e.target.value === 'new') { $('newWho').hidden = false; $('newName').focus(); return; }
+  $('newWho').hidden = true;
+  ctrl('escoger jugador', function () { Modelo.jugadorId = e.target.value ? +e.target.value : null; });
+};
+$('addWho').onclick = function () {
+  var n = $('newName').value.trim(); if (!n) { $('newName').focus(); return; }
+  var sql = 'INSERT INTO jugadores (nombre, curso) VALUES (' + sqlStr(n) + ', ' + $('newCurso').value + ');';
+  try {
+    var antes = snap(), r = db.run(sql)[0]; Modelo.jugadorId = r.ids[0];
+    $('toast').innerHTML = '<b>Jugador ' + r.ids[0] + ' guardado:</b> ' + esc(sql);
+    $('newWho').hidden = true; $('newName').value = ''; llenarJugadores(); actualizarExport();
+    logAction('guardar jugador nuevo', antes);
+  } catch (err) { $('toast').textContent = err.message; }
+};
+
+/* ---------- Bucle principal: el corazón de todo juego ---------- */
+Modelo.culebrita = nuevaCulebrita(); Modelo.ladrillos = nuevosLadrillos(); Modelo.triqui = nuevoTriqui(null);
+llenarJugadores(); renderSchema(); renderExamples(); actualizarExport();
+cambiarJuego('culebrita');
+ejecutarSQL('consulta de ejemplo');
+ctrlLog = [];
+var last = performance.now(), acc = 0;
+function loop(now) {
+  var dt = Math.min(0.05, (now - last) / 1000); last = now;
+  var g = Modelo.juego, m = Modelo[g];
+  if (m.estado === 'jugando') {
+    if (g === 'culebrita') { acc += dt; var paso = 1 / tps(); while (acc >= paso && m.estado === 'jugando') { acc -= paso; pasoCulebrita(m); } }
+    else if (g === 'ladrillos') pasoLadrillos(m, dt);
+    if (m.estado !== 'jugando') controles();
+  } else acc = 0;
+  dibujar(); hud(); updateAlgoPanel(); updateIAPanel(); updateMVC(now);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>
